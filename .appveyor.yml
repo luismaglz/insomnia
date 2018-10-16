@@ -50,6 +50,6 @@ deploy:
   description: ''
   provider: GitHub
   auth_token:
-    secure: 17155cc2a9a5c6a7b3857307af5f5d49c1ad9904
+    secure: 99623c6683cb84099c2db8a6aa25e1b7981ea676
   artifact: dist
   prerelease: true
