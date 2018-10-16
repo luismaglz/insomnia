@@ -42,14 +42,14 @@ artifacts:
   - path: packages\insomnia-app\dist\squirrel-windows\*
     name: dist
 
-#---------------------------------#
-#     deployment configuration    #
-#---------------------------------#
+# #---------------------------------#
+# #     deployment configuration    #
+# #---------------------------------#
 
-deploy:
-  description: ''
-  provider: GitHub
-  auth_token:
-    secure: 99623c6683cb84099c2db8a6aa25e1b7981ea676
-  artifact: dist
-  prerelease: true
+# deploy:
+#   description: ''
+#   provider: GitHub
+#   auth_token:
+#     secure: 99623c6683cb84099c2db8a6aa25e1b7981ea676
+#   artifact: dist
+#   prerelease: true
