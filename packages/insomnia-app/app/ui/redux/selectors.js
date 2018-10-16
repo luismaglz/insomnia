@@ -1,5 +1,6 @@
-import {createSelector} from 'reselect';
-import {fuzzyMatch} from '../../common/misc';
+import { createSelector } from 'reselect';
+import { fuzzyMatchAll } from '../../common/misc';
+import * as models from '../../models';
 
 // ~~~~~~~~~ //
 // Selectors //
@@ -32,7 +33,9 @@ export const selectActiveWorkspaceClientCertificates = createSelector(
   selectEntitiesLists,
   selectActiveWorkspace,
   (entities, activeWorkspace) => {
-    return entities.clientCertificates.filter(c => c.parentId === activeWorkspace._id);
+    return entities.clientCertificates.filter(
+      c => c.parentId === activeWorkspace._id
+    );
   }
 );
 
@@ -74,12 +77,21 @@ export const selectSidebarChildren = createSelector(
   selectRequestsAndRequestGroups,
   selectActiveWorkspace,
   selectActiveWorkspaceMeta,
-  (collapsed, requestsAndRequestGroups, activeWorkspace, activeWorkspaceMeta) => {
-    const sidebarFilter = activeWorkspaceMeta ? activeWorkspaceMeta.sidebarFilter : '';
+  (
+    collapsed,
+    requestsAndRequestGroups,
+    activeWorkspace,
+    activeWorkspaceMeta
+  ) => {
+    const sidebarFilter = activeWorkspaceMeta
+      ? activeWorkspaceMeta.sidebarFilter
+      : '';
 
-    function next (parentId) {
+    function next(parentId) {
       const children = requestsAndRequestGroups
-        .filter(e => e.parentId === parentId)
+        .filter(doc => {
+          return doc.parentId === parentId;
+        })
         .sort((a, b) => {
           if (a.metaSortKey === b.metaSortKey) {
             return a._id > b._id ? -1 : 1;
@@ -91,16 +103,18 @@ export const selectSidebarChildren = createSelector(
       if (children.length > 0) {
         return children.map(c => ({
           doc: c,
-          children: next(c._id),
           hidden: false,
-          collapsed: !!collapsed[c._id]
+          collapsed: !!collapsed[c._id],
+
+          // Don't add children of requests
+          children: c.type === models.request.type ? [] : next(c._id)
         }));
       } else {
         return children;
       }
     }
 
-    function matchChildren (children, parentNames = []) {
+    function matchChildren(children, parentNames = []) {
       // Bail early if no filter defined
       if (!sidebarFilter) {
         return children;
@@ -112,23 +126,16 @@ export const selectSidebarChildren = createSelector(
 
         const hasMatchedChildren = child.children.find(c => c.hidden === false);
 
-        // Build the monster string to match on
-        const method = child.doc.method || '';
-        const name = child.doc.name;
-        const toMatch = `${method}❅${name}❅${parentNames.join('❅')}`;
-
-        // Try to match name
-        let hasMatchedName = true;
-        for (const token of sidebarFilter.trim().split(' ')) {
-          // Filter failed. Don't render children
-          if (!fuzzyMatch(token, toMatch)) {
-            hasMatchedName = false;
-            break;
-          }
-        }
+        // Try to match request attributes
+        const { name, method } = child.doc;
+        const match = fuzzyMatchAll(
+          sidebarFilter,
+          [name, method, ...parentNames],
+          { splitSpace: true }
+        );
 
         // Update hidden state depending on whether it matched
-        const matched = hasMatchedChildren || hasMatchedName;
+        const matched = hasMatchedChildren || match;
         child.hidden = !matched;
       }
 
@@ -144,9 +151,11 @@ export const selectWorkspaceRequestsAndRequestGroups = createSelector(
   selectActiveWorkspace,
   selectEntitiesLists,
   (activeWorkspace, entities) => {
-    function getChildren (doc) {
+    function getChildren(doc) {
       const requests = entities.requests.filter(r => r.parentId === doc._id);
-      const requestGroups = entities.requestGroups.filter(rg => rg.parentId === doc._id);
+      const requestGroups = entities.requestGroups.filter(
+        rg => rg.parentId === doc._id
+      );
       const requestGroupChildren = [];
 
       for (const requestGroup of requestGroups) {
@@ -175,7 +184,9 @@ export const selectActiveCookieJar = createSelector(
   selectEntitiesLists,
   selectActiveWorkspace,
   (entities, workspace) => {
-    const cookieJar = entities.cookieJars.find(cj => cj.parentId === workspace._id);
+    const cookieJar = entities.cookieJars.find(
+      cj => cj.parentId === workspace._id
+    );
     return cookieJar || null;
   }
 );
@@ -192,14 +203,10 @@ export const selectActiveOAuth2Token = createSelector(
 export const selectUnseenWorkspaces = createSelector(
   selectEntitiesLists,
   entities => {
-    const {workspaces, workspaceMetas} = entities;
+    const { workspaces, workspaceMetas } = entities;
     return workspaces.filter(workspace => {
       const meta = workspaceMetas.find(m => m.parentId === workspace._id);
-      if (meta && !meta.hasSeen) {
-        return true;
-      } else {
-        return false;
-      }
+      return !!(meta && !meta.hasSeen);
     });
   }
 );
@@ -220,7 +227,7 @@ export const selectActiveRequestResponses = createSelector(
     const requestId = activeRequest ? activeRequest._id : 'n/a';
     return entities.responses
       .filter(response => requestId === response.parentId)
-      .sort((a, b) => a.created > b.created ? -1 : 1);
+      .sort((a, b) => (a.created > b.created ? -1 : 1));
   }
 );
 
@@ -228,8 +235,12 @@ export const selectActiveResponse = createSelector(
   selectActiveRequestMeta,
   selectActiveRequestResponses,
   (activeRequestMeta, responses) => {
-    const activeResponseId = activeRequestMeta ? activeRequestMeta.activeResponseId : 'n/a';
-    const activeResponse = responses.find(response => response._id === activeResponseId);
+    const activeResponseId = activeRequestMeta
+      ? activeRequestMeta.activeResponseId
+      : 'n/a';
+    const activeResponse = responses.find(
+      response => response._id === activeResponseId
+    );
 
     if (activeResponse) {
       return activeResponse;

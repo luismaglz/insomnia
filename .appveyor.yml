@@ -15,23 +15,23 @@ environment:
 
 # Things to install after repo clone
 install:
+  - SET "PATH=%PATH%;C:\Program Files\Git\mingw64\libexec\git-core" # For weird git bug
   - ps: Install-Product node $env:NODEJS_VERSION $env:Platform
   - node --version
   - npm --version
-  - npm config set msvs_version 2013
-  - npm install 7zip-bin-win > NUL
+  - npm config set msvs_version 2015
   - npm run bootstrap
   - npm test
 
 cache:
-  - '%APPDATA%\npm-cache -> package-lock.json'
-  - '%USERPROFILE%\.electron -> package-lock.json'
+  - '%USERPROFILE%\.electron -> packages/insomnia-app/package.json'
 
 #---------------------------------#
 #       tests configuration       #
 #---------------------------------#
 
 build_script:
+  - npm install --no-save 7zip-bin-win app-builder-bin-win
   - if %APPVEYOR_REPO_TAG%==true npm run app-package
 
 #---------------------------------#

@@ -1,4 +1,4 @@
-const {setDefaultProtocol} = require('../protocol');
+const { setDefaultProtocol } = require('../protocol');
 
 describe('setDefaultProtocol()', () => {
   it('no-ops on empty url', () => {
@@ -8,6 +8,11 @@ describe('setDefaultProtocol()', () => {
 
   it('correctly sets protocol for empty', () => {
     const url = setDefaultProtocol('google.com');
+    expect(url).toBe('http://google.com');
+  });
+
+  it('correctly sets protocol for padded domain', () => {
+    const url = setDefaultProtocol('   google.com   ');
     expect(url).toBe('http://google.com');
   });
 
@@ -26,5 +31,3 @@ describe('setDefaultProtocol()', () => {
     expect(url).toBe('httbad://google.com');
   });
 });
-
-

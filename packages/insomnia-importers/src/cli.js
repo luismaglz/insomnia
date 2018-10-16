@@ -4,10 +4,9 @@ const program = require('commander');
 const path = require('path');
 const importers = require('../index');
 const fs = require('fs');
-const {version} = require('../package.json');
+const { version } = require('../package.json');
 
-module.exports.go = function () {
-
+module.exports.go = async function() {
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
   // Configure the arguments parsing //
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
@@ -37,7 +36,7 @@ module.exports.go = function () {
   const fullInputPath = path.resolve(inputPath);
   const fileContents = fs.readFileSync(fullInputPath, 'utf8');
 
-  const result = importers.convert(fileContents);
+  const result = await importers.convert(fileContents);
   const exportContents = JSON.stringify(result.data, null, 2);
 
   // ~~~~~~~~~~~~~~~~ //

@@ -1,4 +1,4 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import Modal from '../base/modal';
@@ -16,13 +16,14 @@ const MODES = {
   'text/plain': 'Plain Text',
   'application/json': 'JSON',
   'application/xml': 'XML',
+  'application/edn': 'EDN',
   'text/x-markdown': 'Markdown',
   'text/html': 'HTML'
 };
 
 @autobind
 class CodePromptModal extends PureComponent {
-  constructor (props) {
+  constructor(props) {
     super(props);
     this.state = {
       title: 'Not Set',
@@ -31,28 +32,29 @@ class CodePromptModal extends PureComponent {
       placeholder: '',
       hint: '',
       mode: 'text/plain',
+      hideMode: false,
       enableRender: false
     };
   }
 
-  _setModalRef (n) {
+  _setModalRef(n) {
     this.modal = n;
   }
 
-  _handleChange (value) {
+  _handleChange(value) {
     this._onChange(value);
   }
 
-  _handleChangeMode (mode) {
-    this.setState({mode});
+  _handleChangeMode(mode) {
+    this.setState({ mode });
     this._onModeChange && this._onModeChange(mode);
   }
 
-  hide () {
+  hide() {
     this.modal.hide();
   }
 
-  show (options) {
+  show(options) {
     const {
       title,
       defaultValue,
@@ -60,6 +62,7 @@ class CodePromptModal extends PureComponent {
       placeholder,
       hint,
       mode,
+      hideMode,
       enableRender,
       onChange,
       onModeChange
@@ -68,6 +71,8 @@ class CodePromptModal extends PureComponent {
     this._onChange = onChange;
     this._onModeChange = onModeChange;
 
+    const realMode = typeof mode === 'string' ? mode : 'text/plain';
+
     this.setState({
       title,
       defaultValue,
@@ -75,13 +80,14 @@ class CodePromptModal extends PureComponent {
       placeholder,
       hint,
       enableRender,
-      mode: mode || this.state.mode
+      hideMode,
+      mode: realMode || this.state.mode || 'text/plain'
     });
 
     this.modal.show();
   }
 
-  render () {
+  render() {
     const {
       handleGetRenderContext,
       nunjucksPowerUserMode,
@@ -99,13 +105,14 @@ class CodePromptModal extends PureComponent {
       defaultValue,
       hint,
       mode,
+      hideMode,
       enableRender
     } = this.state;
 
     return (
       <Modal ref={this._setModalRef} freshState tall>
         <ModalHeader>{title}</ModalHeader>
-        <ModalBody className="wide tall" style={{minHeight: '10rem'}}>
+        <ModalBody className="wide tall" style={{ minHeight: '10rem' }}>
           {mode === 'text/x-markdown' ? (
             <div className="pad-sm tall">
               <MarkdownEditor
@@ -113,13 +120,16 @@ class CodePromptModal extends PureComponent {
                 defaultValue={defaultValue}
                 placeholder={placeholder}
                 onChange={this._handleChange}
-                handleGetRenderContext={enableRender ? handleGetRenderContext : null}
+                handleGetRenderContext={
+                  enableRender ? handleGetRenderContext : null
+                }
                 handleRender={enableRender ? handleRender : null}
                 mode={mode}
                 keyMap={editorKeyMap}
                 indentSize={editorIndentSize}
                 fontSize={editorFontSize}
                 lineWrapping={editorLineWrapping}
+                nunjucksPowerUserMode={nunjucksPowerUserMode}
               />
             </div>
           ) : (
@@ -132,7 +142,9 @@ class CodePromptModal extends PureComponent {
                   placeholder={placeholder}
                   onChange={this._handleChange}
                   nunjucksPowerUserMode={nunjucksPowerUserMode}
-                  getRenderContext={enableRender ? handleGetRenderContext : null}
+                  getRenderContext={
+                    enableRender ? handleGetRenderContext : null
+                  }
                   render={enableRender ? handleRender : null}
                   mode={mode}
                   keyMap={editorKeyMap}
@@ -145,20 +157,27 @@ class CodePromptModal extends PureComponent {
           )}
         </ModalBody>
         <ModalFooter>
-          <Dropdown>
-            <DropdownButton className="btn btn--clicky margin-left-sm">
-              {MODES[mode]}
-              <i className="fa fa-caret-down space-left"/>
-            </DropdownButton>
-            <DropdownDivider>Editor Syntax</DropdownDivider>
-            {Object.keys(MODES).map(mode => (
-              <DropdownItem key={mode} value={mode} onClick={this._handleChangeMode}>
-                <i className="fa fa-code"/>
+          {!hideMode ? (
+            <Dropdown>
+              <DropdownButton className="btn btn--clicky margin-left-sm">
                 {MODES[mode]}
-              </DropdownItem>
-            ))}
-          </Dropdown>
-          <div className="margin-left faint italic txt-sm tall">{hint ? `* ${hint}` : ''}</div>
+                <i className="fa fa-caret-down space-left" />
+              </DropdownButton>
+              <DropdownDivider>Editor Syntax</DropdownDivider>
+              {Object.keys(MODES).map(mode => (
+                <DropdownItem
+                  key={mode}
+                  value={mode}
+                  onClick={this._handleChangeMode}>
+                  <i className="fa fa-code" />
+                  {MODES[mode]}
+                </DropdownItem>
+              ))}
+            </Dropdown>
+          ) : null}
+          <div className="margin-left faint italic txt-sm tall">
+            {hint ? `* ${hint}` : ''}
+          </div>
           <button className="btn" onClick={this.hide}>
             {submitName || 'Submit'}
           </button>

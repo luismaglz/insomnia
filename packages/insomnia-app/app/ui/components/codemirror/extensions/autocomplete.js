@@ -1,14 +1,14 @@
 import CodeMirror from 'codemirror';
 import 'codemirror/addon/mode/overlay';
-import {getDefaultFill} from '../../../../templating/utils';
-import {escapeRegex} from '../../../../common/misc';
+import { getDefaultFill } from '../../../../templating/utils';
+import { escapeHTML, escapeRegex } from '../../../../common/misc';
 
 const NAME_MATCH_FLEXIBLE = /[\w.\][\-/]+$/;
 const NAME_MATCH = /[\w.\][]+$/;
 const AFTER_VARIABLE_MATCH = /{{\s*[\w.\][]*$/;
 const AFTER_TAG_MATCH = /{%\s*[\w.\][]*$/;
 const COMPLETE_AFTER_WORD = /[\w.\][-]+/;
-const COMPLETE_AFTER_CURLIES = /[^{]*\{[{%]\s*/;
+const COMPLETE_AFTER_CURLIES = /[^{]*{[{%]\s*/;
 const COMPLETION_CLOSE_KEYS = /[}|-]/;
 const MAX_HINT_LOOK_BACK = 100;
 const HINT_DELAY_MILLIS = 700;
@@ -20,12 +20,12 @@ const MAX_VARIABLES = -1;
 const MAX_TAGS = -1;
 
 const ICONS = {
-  [TYPE_CONSTANT]: {char: '&#x1d484;', title: 'Constant'},
-  [TYPE_VARIABLE]: {char: '&#x1d465;', title: 'Environment Variable'},
-  [TYPE_TAG]: {char: '&fnof;', title: 'Generator Tag'}
+  [TYPE_CONSTANT]: { char: '&#x1d484;', title: 'Constant' },
+  [TYPE_VARIABLE]: { char: '&#x1d465;', title: 'Environment Variable' },
+  [TYPE_TAG]: { char: '&fnof;', title: 'Generator Tag' }
 };
 
-CodeMirror.defineExtension('isHintDropdownActive', function () {
+CodeMirror.defineExtension('isHintDropdownActive', function() {
   return (
     this.state.completionActive &&
     this.state.completionActive.data &&
@@ -34,18 +34,12 @@ CodeMirror.defineExtension('isHintDropdownActive', function () {
   );
 });
 
-CodeMirror.defineExtension('closeHint', function () {
-  if (this.state.completionActive) {
-    this.state.completionActive.close();
-  }
-});
-
 CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
   if (!options) {
     return;
   }
 
-  async function completeAfter (cm, fn, showAllOnNoMatch = false) {
+  async function completeAfter(cm, fn, showAllOnNoMatch = false) {
     // Bail early if didn't match the callback test
     if (fn && !fn()) {
       return;
@@ -87,7 +81,7 @@ CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
       closeCharacters: COMPLETION_CLOSE_KEYS,
       completeSingle: false,
       extraKeys: {
-        'Tab': (cm, widget) => {
+        Tab: (cm, widget) => {
           // Override default behavior and don't select hint on Tab
           widget.close();
           return CodeMirror.Pass;
@@ -99,7 +93,7 @@ CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
     });
   }
 
-  function completeIfInVariableName (cm) {
+  function completeIfInVariableName(cm) {
     completeAfter(cm, () => {
       const cur = cm.getCursor();
       const pos = CodeMirror.Pos(cur.line, cur.ch - MAX_HINT_LOOK_BACK);
@@ -110,18 +104,22 @@ CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
     return CodeMirror.Pass;
   }
 
-  function completeIfAfterTagOrVarOpen (cm) {
-    completeAfter(cm, () => {
-      const cur = cm.getCursor();
-      const pos = CodeMirror.Pos(cur.line, cur.ch - MAX_HINT_LOOK_BACK);
-      const range = cm.getRange(pos, cur);
-      return range.match(COMPLETE_AFTER_CURLIES);
-    }, true);
+  function completeIfAfterTagOrVarOpen(cm) {
+    completeAfter(
+      cm,
+      () => {
+        const cur = cm.getCursor();
+        const pos = CodeMirror.Pos(cur.line, cur.ch - MAX_HINT_LOOK_BACK);
+        const range = cm.getRange(pos, cur);
+        return range.match(COMPLETE_AFTER_CURLIES);
+      },
+      true
+    );
 
     return CodeMirror.Pass;
   }
 
-  function completeForce (cm) {
+  function completeForce(cm) {
     completeAfter(cm, null, true);
     return CodeMirror.Pass;
   }
@@ -129,12 +127,16 @@ CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
   let keydownDebounce = null;
 
   cm.on('keydown', (cm, e) => {
-    // Close dropdown on Escape if it's open
+    // Close autocomplete on Escape if it's open
     if (cm.isHintDropdownActive() && e.key === 'Escape') {
-      cm.closeHint();
+      if (!cm.state.completionActive) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
-      return;
+
+      cm.state.completionActive.close();
     }
 
     // Only operate on one-letter keys. This will filter out
@@ -154,14 +156,15 @@ CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
     clearTimeout(keydownDebounce);
   });
 
-  // Add hot key triggers
+  // Remove keymap if we're already added it
+  cm.removeKeyMap('autocomplete-keymap');
+
+  // Add keymap
   cm.addKeyMap({
+    name: 'autocomplete-keymap',
     'Ctrl-Space': completeForce, // Force autocomplete on hotkey
     "' '": completeIfAfterTagOrVarOpen
   });
-
-  // Close dropdown whenever something is clicked
-  document.addEventListener('click', () => cm.closeHint());
 });
 
 /**
@@ -170,7 +173,7 @@ CodeMirror.defineOption('environmentAutocomplete', null, (cm, options) => {
  * @param options
  * @returns {Promise.<{list: Array, from, to}>}
  */
-function hint (cm, options) {
+function hint(cm, options) {
   const variablesToMatch = options.variables || [];
   const constantsToMatch = options.constants || [];
   const tagsToMatch = options.tags || [];
@@ -185,7 +188,7 @@ function hint (cm, options) {
   const isInTag = previousText.match(AFTER_TAG_MATCH);
   const isInNothing = !isInVariable && !isInTag;
   const allowMatchingVariables = isInNothing || isInVariable;
-  const allowMatchingTags = (isInNothing || isInTag);
+  const allowMatchingTags = isInNothing || isInTag;
   const allowMatchingConstants = isInNothing;
 
   // Define fallback segment to match everything or nothing
@@ -199,44 +202,82 @@ function hint (cm, options) {
   const nameSegmentFull = previousText;
 
   // Actually try to match the list of things
-  const allShortMatches = [];
-  const allLongMatches = [];
+  const lowPriorityMatches = [];
+  const highPriorityMatches = [];
+
+  let mode;
+  try {
+    mode = cm.getOption('mode').baseMode;
+  } catch (e) {
+    mode = 'unknown';
+  }
 
   // Match variables
   if (allowMatchingVariables) {
-    matchSegments(variablesToMatch, nameSegment, TYPE_VARIABLE, MAX_VARIABLES)
-      .map(m => allShortMatches.push(m));
-    matchSegments(variablesToMatch, nameSegmentLong, TYPE_VARIABLE, MAX_VARIABLES)
-      .map(m => allLongMatches.push(m));
+    matchSegments(variablesToMatch, nameSegment, TYPE_VARIABLE, MAX_VARIABLES).forEach(m =>
+      lowPriorityMatches.push(m)
+    );
+    matchSegments(variablesToMatch, nameSegmentLong, TYPE_VARIABLE, MAX_VARIABLES).forEach(m =>
+      highPriorityMatches.push(m)
+    );
   }
 
-  // Match constants (only use long segment for a more strict match)
-  // TODO: Make this more flexible. This is really only here as a hack to make
-  // constants only match full string prefixes.
+  // Match constants
   if (allowMatchingConstants) {
-    // Only match full segments with constants
-    matchSegments(constantsToMatch, nameSegmentFull, TYPE_CONSTANT, MAX_CONSTANTS)
-      .map(m => allLongMatches.push(m));
+    const cur = cm.getCursor();
+    const token = cm.getTokenAt(cur);
+
+    if (mode === 'graphql-variables') {
+      const segment = token.string
+        .trim()
+        .replace(/^{?"?/, '') // Remove leading '{' and spaces
+        .replace(/"?}?$/, ''); // Remove trailing quotes and spaces
+
+      if (token.type === 'variable') {
+        // We're inside a JSON key
+        matchSegments(constantsToMatch, segment, TYPE_CONSTANT, MAX_CONSTANTS).forEach(m =>
+          highPriorityMatches.push(m)
+        );
+      } else if (
+        token.type === 'invalidchar' ||
+        token.type === 'ws' ||
+        (token.type === 'punctuation' && token.string === '{')
+      ) {
+        // We're outside of a JSON key
+        matchSegments(constantsToMatch, segment, TYPE_CONSTANT, MAX_CONSTANTS).forEach(m =>
+          highPriorityMatches.push({ ...m, text: '"' + m.text + '": ' })
+        );
+      }
+    } else {
+      // Otherwise match full segments
+      matchSegments(constantsToMatch, nameSegmentFull, TYPE_CONSTANT, MAX_CONSTANTS).forEach(m =>
+        highPriorityMatches.push(m)
+      );
+    }
   }
 
   // Match tags
   if (allowMatchingTags) {
-    matchSegments(tagsToMatch, nameSegment, TYPE_TAG, MAX_TAGS)
-      .map(m => allShortMatches.push(m));
-    matchSegments(tagsToMatch, nameSegmentLong, TYPE_TAG, MAX_TAGS)
-      .map(m => allLongMatches.push(m));
+    matchSegments(tagsToMatch, nameSegment, TYPE_TAG, MAX_TAGS).forEach(m =>
+      lowPriorityMatches.push(m)
+    );
+    matchSegments(tagsToMatch, nameSegmentLong, TYPE_TAG, MAX_TAGS).forEach(m =>
+      highPriorityMatches.push(m)
+    );
   }
 
-  /*
-   * If anything matched the longer segment, only return those. Otherwise return only
-   * the short form. For example, if the long form is "application/json" and short is "json",
-   * prioritise matches form "application/json" if there were any.
-   */
-  const matches = allLongMatches.length ? allLongMatches : allShortMatches;
-  const segment = allLongMatches.length ? nameSegmentLong : nameSegment;
+  const matches = [...highPriorityMatches, ...lowPriorityMatches];
+
+  // Autocomplete from longest matched segment
+  const segment = highPriorityMatches.length ? nameSegmentLong : nameSegment;
+
+  const uniqueMatches = matches.reduce(
+    (arr, v) => (arr.find(a => a.text === v.text) ? arr : [...arr, v]),
+    [] // Default value
+  );
 
   return {
-    list: matches,
+    list: uniqueMatches,
     from: CodeMirror.Pos(cur.line, cur.ch - segment.length),
     to: CodeMirror.Pos(cur.line, cur.ch)
   };
@@ -249,7 +290,7 @@ function hint (cm, options) {
  * @param self
  * @param data
  */
-function replaceHintMatch (cm, self, data) {
+function replaceHintMatch(cm, self, data) {
   const cur = cm.getCursor();
   const from = CodeMirror.Pos(cur.line, cur.ch - data.segment.length);
   const to = CodeMirror.Pos(cur.line, cur.ch);
@@ -298,7 +339,7 @@ function replaceHintMatch (cm, self, data) {
  * @param limit
  * @returns {Array}
  */
-function matchSegments (listOfThings, segment, type, limit = -1) {
+function matchSegments(listOfThings, segment, type, limit = -1) {
   if (!Array.isArray(listOfThings)) {
     console.warn('Autocomplete received items in non-list form', listOfThings);
     return [];
@@ -350,7 +391,7 @@ function matchSegments (listOfThings, segment, type, limit = -1) {
  * @param suffix
  * @returns string
  */
-function replaceWithSurround (text, find, prefix, suffix) {
+function replaceWithSurround(text, find, prefix, suffix) {
   const escapedString = escapeRegex(find);
   const re = new RegExp(escapedString, 'gi');
   return text.replace(re, matched => prefix + matched + suffix);
@@ -362,18 +403,18 @@ function replaceWithSurround (text, find, prefix, suffix) {
  * @param self
  * @param data
  */
-function renderHintMatch (li, self, data) {
+function renderHintMatch(li, self, data) {
   // Bold the matched text
-  const {displayText, segment} = data;
+  const { displayText, segment } = data;
   const markedName = replaceWithSurround(displayText, segment, '<strong>', '</strong>');
 
-  const {char, title} = ICONS[data.type];
+  const { char, title } = ICONS[data.type];
 
   let html = `
     <label class="label" title="${title}">${char}</label>
     <div class="name">${markedName}</div>
     <div class="value" title=${data.displayValue}>
-      ${data.displayValue || ''}
+      ${escapeHTML(data.displayValue || '')}
     </div>
   `;
 

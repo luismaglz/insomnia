@@ -1,3 +1,5 @@
+// @flow
+
 declare module 'insomnia-url' {
   declare module.exports: {
     setDefaultProtocol: Function,
@@ -7,5 +9,5 @@ declare module 'insomnia-url' {
     extractQueryStringFromUrl: Function,
     buildQueryParameter: Function,
     buildQueryStringFromParams: Function
-  }
+  };
 }

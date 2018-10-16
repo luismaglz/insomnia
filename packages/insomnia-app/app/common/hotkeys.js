@@ -1,14 +1,14 @@
 // @flow
 import keycodes from './keycodes';
-import {isMac} from './constants';
-import {trackEvent} from './analytics';
+import { isMac } from './constants';
 
 export type Hotkey = {
   description: string,
   meta: boolean,
   alt: boolean,
   shift: boolean,
-  keycode: number | Array<number>
+  keycode: number | Array<number>,
+  metaIsCtrl?: boolean
 };
 
 export const SHOW_WORKSPACE_SETTINGS: Hotkey = {
@@ -70,6 +70,7 @@ export const RELOAD_PLUGINS: Hotkey = {
 export const SHOW_AUTOCOMPLETE: Hotkey = {
   description: 'Show Autocomplete',
   meta: true,
+  metaIsCtrl: true,
   alt: false,
   shift: false,
   keycode: keycodes.space
@@ -211,12 +212,12 @@ export const CLOSE_MODAL: Hotkey = {
   keycode: keycodes.esc
 };
 
-export function pressedHotKey (e: KeyboardEvent, definition: Hotkey): boolean {
+export function pressedHotKey(e: KeyboardEvent, definition: Hotkey): boolean {
   const isMetaPressed = isMac() ? e.metaKey : e.ctrlKey;
   const isAltPressed = isMac() ? e.ctrlKey : e.altKey;
   const isShiftPressed = e.shiftKey;
 
-  const {meta, alt, shift, keycode} = definition;
+  const { meta, alt, shift, keycode } = definition;
   const codes = Array.isArray(keycode) ? keycode : [keycode];
 
   for (const code of codes) {
@@ -242,19 +243,20 @@ export function pressedHotKey (e: KeyboardEvent, definition: Hotkey): boolean {
   return false;
 }
 
-export function executeHotKey (
+export function executeHotKey(
   e: KeyboardEvent,
   definition: Hotkey,
   callback: Function
 ): void {
   if (pressedHotKey(e, definition)) {
     callback();
-    trackEvent('Hotkey', definition.description);
   }
 }
 
-export function getChar (hotkey: Hotkey) {
-  const codes = Array.isArray(hotkey.keycode) ? hotkey.keycode : [hotkey.keycode];
+export function getChar(hotkey: Hotkey) {
+  const codes = Array.isArray(hotkey.keycode)
+    ? hotkey.keycode
+    : [hotkey.keycode];
   const chars = [];
 
   for (const keycode of codes) {

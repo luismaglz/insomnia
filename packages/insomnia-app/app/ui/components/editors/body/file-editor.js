@@ -1,4 +1,4 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import fs from 'fs';
@@ -6,22 +6,19 @@ import electron from 'electron';
 import FileInputButton from '../../base/file-input-button';
 import PromptButton from '../../base/prompt-button';
 import * as misc from '../../../../common/misc';
-import {trackEvent} from '../../../../common/analytics';
 
 @autobind
 class FileEditor extends PureComponent {
-  _handleResetFile () {
+  _handleResetFile() {
     this.props.onChange('');
-    trackEvent('File Editor', 'Reset');
   }
 
-  _handleChooseFile (path) {
+  _handleChooseFile(path) {
     this.props.onChange(path);
-    trackEvent('File Editor', 'Choose');
   }
 
-  render () {
-    const {path} = this.props;
+  render() {
+    const { path } = this.props;
 
     // Replace home path with ~/ to make the path shorter
     const homeDirectory = electron.remote.app.getPath('home');
@@ -43,20 +40,18 @@ class FileEditor extends PureComponent {
             <code className="block txt-sm">
               <span className="force-wrap selectable" title={path}>
                 {pathDescription}
-              </span>
-              {' '}
+              </span>{' '}
               <span className="no-wrap">({sizeDescription})</span>
             </code>
           ) : (
-            <code className="super-faint block txt-sm">
-              No file selected
-            </code>
+            <code className="super-faint block txt-sm">No file selected</code>
           )}
         </div>
         <div>
-          <PromptButton className="btn btn--super-compact"
-                        disabled={!path}
-                        onClick={this._handleResetFile}>
+          <PromptButton
+            className="btn btn--super-compact"
+            disabled={!path}
+            onClick={this._handleResetFile}>
             Reset File
           </PromptButton>
           &nbsp;&nbsp;

@@ -1,15 +1,19 @@
 // @flow
-import type {Request} from '../../../../models/request';
+import type { RequestAuthentication } from '../../../../models/request';
 
 import * as React from 'react';
+import classnames from 'classnames';
 import autobind from 'autobind-decorator';
 import OneLineEditor from '../../codemirror/one-line-editor';
-import * as misc from '../../../../common/misc';
-import {HAWK_ALGORITHM_SHA1, HAWK_ALGORITHM_SHA256} from '../../../../common/constants';
+import {
+  HAWK_ALGORITHM_SHA1,
+  HAWK_ALGORITHM_SHA256
+} from '../../../../common/constants';
 import HelpTooltip from '../../help-tooltip';
+import Button from '../../base/button';
 
 type Props = {
-  request: Request,
+  authentication: RequestAuthentication,
   handleRender: Function,
   handleGetRenderContext: Function,
   nunjucksPowerUserMode: boolean,
@@ -18,33 +22,31 @@ type Props = {
 
 @autobind
 class HawkAuth extends React.PureComponent<Props> {
-  _handleChangeProperty: Function;
-
-  constructor (props: any) {
-    super(props);
-
-    this._handleChangeProperty = misc.debounce(this._handleChangeProperty, 500);
-  }
-
-  _handleChangeProperty (property: string, value: string | boolean): void {
-    const {request} = this.props;
-    const authentication = Object.assign({}, request.authentication, {[property]: value});
+  _handleDisable() {
+    const { authentication } = this.props;
+    authentication.disabled = !authentication.disabled;
     this.props.onChange(authentication);
   }
 
-  _handleChangeHawkAuthId (value: string): void {
+  _handleChangeProperty(property: string, value: string | boolean): void {
+    const { authentication } = this.props;
+    authentication[property] = value;
+    this.props.onChange(authentication);
+  }
+
+  _handleChangeHawkAuthId(value: string): void {
     this._handleChangeProperty('id', value);
   }
 
-  _handleChangeHawkAuthKey (value: string): void {
+  _handleChangeHawkAuthKey(value: string): void {
     this._handleChangeProperty('key', value);
   }
 
-  _handleChangeAlgorithm (e: SyntheticEvent<HTMLSelectElement>): void {
+  _handleChangeAlgorithm(e: SyntheticEvent<HTMLSelectElement>): void {
     this._handleChangeProperty('algorithm', e.currentTarget.value);
   }
 
-  renderHawkAuthenticationFields (): React.Node {
+  renderHawkAuthenticationFields(): React.Node {
     const hawkAuthId = this.renderInputRow(
       'Auth ID',
       'id',
@@ -61,8 +63,8 @@ class HawkAuth extends React.PureComponent<Props> {
       'Algorithm',
       'algorithm',
       [
-        {name: HAWK_ALGORITHM_SHA256, value: HAWK_ALGORITHM_SHA256},
-        {name: HAWK_ALGORITHM_SHA1, value: HAWK_ALGORITHM_SHA1}
+        { name: HAWK_ALGORITHM_SHA256, value: HAWK_ALGORITHM_SHA256 },
+        { name: HAWK_ALGORITHM_SHA1, value: HAWK_ALGORITHM_SHA1 }
       ],
       this._handleChangeAlgorithm
     );
@@ -70,17 +72,17 @@ class HawkAuth extends React.PureComponent<Props> {
     return [hawkAuthId, hawkAuthKey, algorithm];
   }
 
-  renderSelectRow (
+  renderSelectRow(
     label: string,
     property: string,
-    options: Array<{name: string, value: string}>,
+    options: Array<{ name: string, value: string }>,
     onChange: Function,
     help: string | null = null
   ): React.Element<*> {
-    const {request} = this.props;
+    const { authentication } = this.props;
     const id = label.replace(/ /g, '-');
-    const value = request.authentication.hasOwnProperty(property)
-      ? request.authentication[property]
+    const value = authentication.hasOwnProperty(property)
+      ? authentication[property]
       : options[0];
 
     return (
@@ -92,10 +94,18 @@ class HawkAuth extends React.PureComponent<Props> {
           </label>
         </td>
         <td className="wide">
-          <div className="form-control form-control--outlined no-margin">
+          <div
+            className={classnames(
+              'form-control form-control--outlined no-margin',
+              {
+                'form-control--inactive': authentication.disabled
+              }
+            )}>
             <select id={id} onChange={onChange} value={value}>
-              {options.map(({name, value}) => (
-                <option key={value} value={value}>{name}</option>
+              {options.map(({ name, value }) => (
+                <option key={value} value={value}>
+                  {name}
+                </option>
               ))}
             </select>
           </div>
@@ -104,12 +114,17 @@ class HawkAuth extends React.PureComponent<Props> {
     );
   }
 
-  renderInputRow (
+  renderInputRow(
     label: string,
     property: string,
     onChange: Function
   ): React.Element<*> {
-    const {handleRender, handleGetRenderContext, request, nunjucksPowerUserMode} = this.props;
+    const {
+      handleRender,
+      handleGetRenderContext,
+      authentication,
+      nunjucksPowerUserMode
+    } = this.props;
     const id = label.replace(/ /g, '-');
     return (
       <tr key={id}>
@@ -119,12 +134,18 @@ class HawkAuth extends React.PureComponent<Props> {
           </label>
         </td>
         <td className="wide">
-          <div className="form-control form-control--underlined no-margin">
+          <div
+            className={classnames(
+              'form-control form-control--underlined no-margin',
+              {
+                'form-control--inactive': authentication.disabled
+              }
+            )}>
             <OneLineEditor
               id={id}
               type="text"
               onChange={onChange}
-              defaultValue={request.authentication[property] || ''}
+              defaultValue={authentication[property] || ''}
               nunjucksPowerUserMode={nunjucksPowerUserMode}
               render={handleRender}
               getRenderContext={handleGetRenderContext}
@@ -135,13 +156,41 @@ class HawkAuth extends React.PureComponent<Props> {
     );
   }
 
-  render () {
+  render() {
     const fields = this.renderHawkAuthenticationFields();
+    const { authentication } = this.props;
 
     return (
       <div className="pad">
         <table>
-          <tbody>{fields}</tbody>
+          <tbody>
+            {fields}
+            <tr>
+              <td className="pad-right no-wrap valign-middle">
+                <label htmlFor="enabled" className="label--small no-pad">
+                  Enabled
+                </label>
+              </td>
+              <td className="wide">
+                <div className="form-control form-control--underlined">
+                  <Button
+                    className="btn btn--super-duper-compact"
+                    id="enabled"
+                    onClick={this._handleDisable}
+                    value={!authentication.disabled}
+                    title={
+                      authentication.disabled ? 'Enable item' : 'Disable item'
+                    }>
+                    {authentication.disabled ? (
+                      <i className="fa fa-square-o" />
+                    ) : (
+                      <i className="fa fa-check-square-o" />
+                    )}
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
         </table>
       </div>
     );

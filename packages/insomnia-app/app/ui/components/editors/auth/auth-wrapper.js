@@ -1,6 +1,17 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
-import {AUTH_BASIC, AUTH_DIGEST, AUTH_BEARER, AUTH_NTLM, AUTH_OAUTH_1, AUTH_OAUTH_2, AUTH_AWS_IAM, AUTH_HAWK, AUTH_NETRC, AUTH_ASAP} from '../../../../common/constants';
+import {
+  AUTH_BASIC,
+  AUTH_DIGEST,
+  AUTH_BEARER,
+  AUTH_NTLM,
+  AUTH_OAUTH_1,
+  AUTH_OAUTH_2,
+  AUTH_AWS_IAM,
+  AUTH_HAWK,
+  AUTH_NETRC,
+  AUTH_ASAP
+} from '../../../../common/constants';
 import BasicAuth from './basic-auth';
 import DigestAuth from './digest-auth';
 import BearerAuth from './bearer-auth';
@@ -15,7 +26,7 @@ import autobind from 'autobind-decorator';
 
 @autobind
 class AuthWrapper extends PureComponent {
-  renderEditor () {
+  renderEditor() {
     const {
       oAuth2Token,
       request,
@@ -27,7 +38,7 @@ class AuthWrapper extends PureComponent {
       showPasswords
     } = this.props;
 
-    const {authentication} = request;
+    const { authentication } = request;
 
     if (authentication.type === AUTH_BASIC) {
       return (
@@ -57,7 +68,7 @@ class AuthWrapper extends PureComponent {
     } else if (authentication.type === AUTH_HAWK) {
       return (
         <HawkAuth
-          request={request}
+          authentication={authentication}
           handleRender={handleRender}
           handleGetRenderContext={handleGetRenderContext}
           nunjucksPowerUserMode={nunjucksPowerUserMode}
@@ -71,6 +82,7 @@ class AuthWrapper extends PureComponent {
           handleRender={handleRender}
           handleGetRenderContext={handleGetRenderContext}
           nunjucksPowerUserMode={nunjucksPowerUserMode}
+          showPasswords={showPasswords}
           onChange={onChange}
         />
       );
@@ -102,7 +114,6 @@ class AuthWrapper extends PureComponent {
       return (
         <BearerAuth
           authentication={authentication}
-          request={request}
           handleRender={handleRender}
           handleGetRenderContext={handleGetRenderContext}
           nunjucksPowerUserMode={nunjucksPowerUserMode}
@@ -122,13 +133,11 @@ class AuthWrapper extends PureComponent {
         />
       );
     } else if (authentication.type === AUTH_NETRC) {
-      return (
-        <NetrcAuth />
-      );
+      return <NetrcAuth />;
     } else if (authentication.type === AUTH_ASAP) {
       return (
         <AsapAuth
-          request={request}
+          authentication={authentication}
           handleRender={handleRender}
           handleGetRenderContext={handleGetRenderContext}
           nunjucksPowerUserMode={nunjucksPowerUserMode}
@@ -139,8 +148,12 @@ class AuthWrapper extends PureComponent {
       return (
         <div className="vertically-center text-center">
           <p className="pad super-faint text-sm text-center">
-            <i className="fa fa-unlock-alt" style={{fontSize: '8rem', opacity: 0.3}}/>
-            <br/><br/>
+            <i
+              className="fa fa-unlock-alt"
+              style={{ fontSize: '8rem', opacity: 0.3 }}
+            />
+            <br />
+            <br />
             Select an auth type from above
           </p>
         </div>
@@ -148,10 +161,8 @@ class AuthWrapper extends PureComponent {
     }
   }
 
-  render () {
-    return (
-      <div className="tall">{this.renderEditor()}</div>
-    );
+  render() {
+    return <div className="tall">{this.renderEditor()}</div>;
   }
 }
 

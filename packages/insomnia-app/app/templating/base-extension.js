@@ -1,43 +1,46 @@
 import * as models from '../models/index';
 import * as templating from './index';
+import * as pluginContexts from '../plugins/context';
+import * as db from '../common/database';
 
 const EMPTY_ARG = '__EMPTY_NUNJUCKS_ARG__';
 
 export default class BaseExtension {
-  constructor (ext) {
+  constructor(ext, plugin) {
     this._ext = ext;
+    this._plugin = plugin;
     this.tags = [this.getTag()];
   }
 
-  getTag () {
+  getTag() {
     return this._ext.name;
   }
 
-  getPriority () {
+  getPriority() {
     return this._ext.priority || -1;
   }
 
-  getName () {
+  getName() {
     return this._ext.displayName || this.getTag();
   }
 
-  getDescription () {
+  getDescription() {
     return this._ext.description || 'no description';
   }
 
-  getArgs () {
+  getArgs() {
     return this._ext.args || [];
   }
 
-  isDeprecated () {
+  isDeprecated() {
     return this._ext.deprecated || false;
   }
 
-  run (...args) {
+  run(...args) {
     return this._ext.run(...args);
   }
 
-  parse (parser, nodes, lexer) {
+  parse(parser, nodes, lexer) {
     const tok = parser.nextToken();
 
     let args;
@@ -53,12 +56,17 @@ export default class BaseExtension {
     return new nodes.CallExtensionAsync(this, 'asyncRun', args);
   }
 
-  asyncRun ({ctx: renderContext}, ...runArgs) {
+  asyncRun({ ctx: renderContext }, ...runArgs) {
     // Pull the callback off the end
     const callback = runArgs[runArgs.length - 1];
 
     // Pull out the meta helper
     const renderMeta = renderContext.getMeta ? renderContext.getMeta() : {};
+
+    // Pull out the purpose
+    const renderPurpose = renderContext.getPurpose
+      ? renderContext.getPurpose()
+      : null;
 
     // Extract the rest of the args
     const args = runArgs
@@ -67,13 +75,25 @@ export default class BaseExtension {
 
     // Define a helper context with utils
     const helperContext = {
+      ...pluginContexts.app.init(renderPurpose),
+      ...pluginContexts.store.init(this._plugin),
       context: renderContext,
       meta: renderMeta,
       util: {
-        render: str => templating.render(str, {context: renderContext}),
+        render: str => templating.render(str, { context: renderContext }),
         models: {
-          request: {getById: models.request.getById},
-          workspace: {getById: models.workspace.getById},
+          request: {
+            getById: models.request.getById,
+            getAncestors: async request => {
+              const ancestors = await db.withAncestors(request, [
+                models.requestGroup.type,
+                models.workspace.type
+              ]);
+              return ancestors.filter(doc => doc._id !== request._id);
+            }
+          },
+          workspace: { getById: models.workspace.getById },
+          oAuth2Token: { getByRequestId: models.oAuth2Token.getByParentId },
           cookieJar: {
             getOrCreateForWorkspace: workspace => {
               return models.cookieJar.getOrCreateForParentId(workspace._id);
@@ -91,16 +111,20 @@ export default class BaseExtension {
     try {
       result = this.run(helperContext, ...args);
     } catch (err) {
+      // Catch sync errors
       callback(err);
       return;
     }
 
     // If the result is a promise, resolve it async
     if (result instanceof Promise) {
-      result.then(
-        r => callback(null, r),
-        err => callback(err)
-      );
+      result
+        .then(r => {
+          callback(null, r);
+        })
+        .catch(err => {
+          callback(err);
+        });
       return;
     }
 

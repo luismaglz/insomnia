@@ -2,14 +2,20 @@
 import * as React from 'react';
 import iconv from 'iconv-lite';
 import autobind from 'autobind-decorator';
-import {shell} from 'electron';
-import PDFViewer from '../pdf-viewer';
+import { shell } from 'electron';
+import PDFViewer from './response-pdf-viewer';
+import CSVViewer from './response-csv-viewer';
 import CodeEditor from '../codemirror/code-editor';
-import ResponseWebView from './response-webview';
+import ResponseWebView from './response-web-view';
 import MultipartViewer from './response-multipart';
 import ResponseRaw from './response-raw';
 import ResponseError from './response-error';
-import {HUGE_RESPONSE_MB, LARGE_RESPONSE_MB, PREVIEW_MODE_FRIENDLY, PREVIEW_MODE_RAW} from '../../../common/constants';
+import {
+  HUGE_RESPONSE_MB,
+  LARGE_RESPONSE_MB,
+  PREVIEW_MODE_FRIENDLY,
+  PREVIEW_MODE_RAW
+} from '../../../common/constants';
 import Wrap from '../wrap';
 
 let alwaysShowLargeResponses = false;
@@ -42,7 +48,7 @@ type State = {
 
 @autobind
 class ResponseViewer extends React.Component<Props, State> {
-  constructor (props: Props) {
+  constructor(props: Props) {
     super(props);
     this.state = {
       blockingBecauseTooLarge: false,
@@ -51,25 +57,34 @@ class ResponseViewer extends React.Component<Props, State> {
     };
   }
 
-  _handleOpenLink (link: string) {
+  _decodeIconv(bodyBuffer: Buffer, charset: string): string {
+    try {
+      return iconv.decode(bodyBuffer, charset);
+    } catch (err) {
+      console.warn('[response] Failed to decode body', err);
+      return bodyBuffer.toString();
+    }
+  }
+
+  _handleOpenLink(link: string) {
     shell.openExternal(link);
   }
 
-  _handleDismissBlocker () {
-    this.setState({blockingBecauseTooLarge: false});
+  _handleDismissBlocker() {
+    this.setState({ blockingBecauseTooLarge: false });
     this._maybeLoadResponseBody(this.props, true);
   }
 
-  _handleDisableBlocker () {
+  _handleDisableBlocker() {
     alwaysShowLargeResponses = true;
     this._handleDismissBlocker();
   }
 
-  _maybeLoadResponseBody (props: Props, forceShow?: boolean) {
+  _maybeLoadResponseBody(props: Props, forceShow?: boolean) {
     // Block the response if it's too large
     const responseIsTooLarge = props.bytes > LARGE_RESPONSE_MB * 1024 * 1024;
     if (!forceShow && !alwaysShowLargeResponses && responseIsTooLarge) {
-      this.setState({blockingBecauseTooLarge: true});
+      this.setState({ blockingBecauseTooLarge: true });
     } else {
       try {
         const bodyBuffer = props.getBody();
@@ -78,20 +93,22 @@ class ResponseViewer extends React.Component<Props, State> {
           blockingBecauseTooLarge: false
         });
       } catch (err) {
-        this.setState({error: `Failed reading response from filesystem: ${err.stack}`});
+        this.setState({
+          error: `Failed reading response from filesystem: ${err.stack}`
+        });
       }
     }
   }
 
-  componentWillMount () {
+  componentWillMount() {
     this._maybeLoadResponseBody(this.props);
   }
 
-  componentWillReceiveProps (nextProps: Props) {
+  componentWillReceiveProps(nextProps: Props) {
     this._maybeLoadResponseBody(nextProps);
   }
 
-  shouldComponentUpdate (nextProps: Props, nextState: State) {
+  shouldComponentUpdate(nextProps: Props, nextState: State) {
     for (let k of Object.keys(nextProps)) {
       const next = nextProps[k];
       const current = this.props[k];
@@ -137,7 +154,7 @@ class ResponseViewer extends React.Component<Props, State> {
     return false;
   }
 
-  render () {
+  render() {
     const {
       bytes,
       download,
@@ -156,24 +173,20 @@ class ResponseViewer extends React.Component<Props, State> {
 
     let contentType = this.props.contentType;
 
-    const {bodyBuffer, error: parseError} = this.state;
+    const { bodyBuffer, error: parseError } = this.state;
 
     const error = responseError || parseError;
 
     if (error) {
       return (
         <div className="scrollable tall">
-          <ResponseError
-            url={url}
-            error={error}
-            fontSize={editorFontSize}
-          />
+          <ResponseError url={url} error={error} fontSize={editorFontSize} />
         </div>
       );
     }
 
     const wayTooLarge = bytes > HUGE_RESPONSE_MB * 1024 * 1024;
-    const {blockingBecauseTooLarge} = this.state;
+    const { blockingBecauseTooLarge } = this.state;
     if (blockingBecauseTooLarge) {
       return (
         <div className="response-pane__notify">
@@ -182,28 +195,35 @@ class ResponseViewer extends React.Component<Props, State> {
               <p className="pad faint">
                 Responses over {HUGE_RESPONSE_MB}MB cannot be shown
               </p>
-              <button onClick={download} className="inline-block btn btn--clicky">
+              <button
+                onClick={download}
+                className="inline-block btn btn--clicky">
                 Save Response To File
               </button>
             </Wrap>
           ) : (
             <Wrap>
               <p className="pad faint">
-                Response over {LARGE_RESPONSE_MB}MB hidden for performance reasons
+                Response over {LARGE_RESPONSE_MB}MB hidden for performance
+                reasons
               </p>
               <div>
-                <button onClick={download} className="inline-block btn btn--clicky margin-xs">
+                <button
+                  onClick={download}
+                  className="inline-block btn btn--clicky margin-xs">
                   Save To File
                 </button>
-                <button onClick={this._handleDismissBlocker}
-                        disabled={wayTooLarge}
-                        className=" inline-block btn btn--clicky margin-xs">
+                <button
+                  onClick={this._handleDismissBlocker}
+                  disabled={wayTooLarge}
+                  className=" inline-block btn btn--clicky margin-xs">
                   Show Anyway
                 </button>
               </div>
               <div className="pad-top-sm">
-                <button className="faint inline-block btn btn--super-compact"
-                        onClick={this._handleDisableBlocker}>
+                <button
+                  className="faint inline-block btn btn--super-compact"
+                  onClick={this._handleDisableBlocker}>
                   Always Show
                 </button>
               </div>
@@ -222,11 +242,7 @@ class ResponseViewer extends React.Component<Props, State> {
     }
 
     if (bodyBuffer.length === 0) {
-      return (
-        <div className="pad faint">
-          No body returned for response
-        </div>
-      );
+      return <div className="pad faint">No body returned for response</div>;
     }
 
     // Try to detect JSON in all cases (even if header is set). Apparently users
@@ -242,7 +258,12 @@ class ResponseViewer extends React.Component<Props, State> {
     // common for webservers to send errors in HTML by default.
     // NOTE: This will probably never throw but I'm not 100% so wrap anyway
     try {
-      if (bodyBuffer.slice(0, 100).toString().trim().match(/^<!doctype html.*>/i)) {
+      const isProbablyHTML = bodyBuffer
+        .slice(0, 100)
+        .toString()
+        .trim()
+        .match(/^<!doctype html.*>/i);
+      if (contentType.indexOf('text/html') !== 0 && isProbablyHTML) {
         contentType = 'text/html';
       }
     } catch (e) {
@@ -256,32 +277,49 @@ class ResponseViewer extends React.Component<Props, State> {
       return (
         <div className="scrollable-container tall wide">
           <div className="scrollable">
-            <img src={`data:${justContentType};base64,${base64Body}`}
-                 className="pad block"
-                 style={{maxWidth: '100%', maxHeight: '100%', margin: 'auto'}}/>
+            <img
+              src={`data:${justContentType};base64,${base64Body}`}
+              className="pad block"
+              style={{ maxWidth: '100%', maxHeight: '100%', margin: 'auto' }}
+            />
           </div>
         </div>
       );
     } else if (previewMode === PREVIEW_MODE_FRIENDLY && ct.includes('html')) {
-      const justContentType = contentType.split(';')[0];
       const match = contentType.match(/charset=([\w-]+)/);
-      const charset = (match && match.length >= 2) ? match[1] : 'utf-8';
+      const charset = match && match.length >= 2 ? match[1] : 'utf-8';
       return (
         <ResponseWebView
-          body={iconv.decode(bodyBuffer, charset)}
-          contentType={`${justContentType}; charset=UTF-8`}
+          body={this._decodeIconv(bodyBuffer, charset)}
+          contentType={contentType}
           url={url}
         />
       );
-    } else if (previewMode === PREVIEW_MODE_FRIENDLY && ct.indexOf('application/pdf') === 0) {
+    } else if (
+      previewMode === PREVIEW_MODE_FRIENDLY &&
+      ct.indexOf('application/pdf') === 0
+    ) {
       return (
         <div className="tall wide scrollable">
-          <PDFViewer body={bodyBuffer} uniqueKey={responseId}/>
+          <PDFViewer body={bodyBuffer} uniqueKey={responseId} />
         </div>
       );
-    } else if (previewMode === PREVIEW_MODE_FRIENDLY && ct.indexOf('multipart/') === 0) {
+    } else if (
+      previewMode === PREVIEW_MODE_FRIENDLY &&
+      ct.indexOf('text/csv') === 0
+    ) {
+      return (
+        <div className="tall wide scrollable">
+          <CSVViewer body={bodyBuffer} key={responseId} />
+        </div>
+      );
+    } else if (
+      previewMode === PREVIEW_MODE_FRIENDLY &&
+      ct.indexOf('multipart/') === 0
+    ) {
       return (
         <MultipartViewer
+          key={responseId}
           bodyBuffer={bodyBuffer}
           contentType={contentType}
           download={download}
@@ -295,37 +333,36 @@ class ResponseViewer extends React.Component<Props, State> {
           url={url}
         />
       );
-    } else if (previewMode === PREVIEW_MODE_FRIENDLY && ct.indexOf('audio/') === 0) {
+    } else if (
+      previewMode === PREVIEW_MODE_FRIENDLY &&
+      ct.indexOf('audio/') === 0
+    ) {
       const justContentType = contentType.split(';')[0];
       const base64Body = bodyBuffer.toString('base64');
       return (
-        <div className="vertically-center">
+        <div className="vertically-center" key={responseId}>
           <audio controls>
-            <source src={`data:${justContentType};base64,${base64Body}`}/>
+            <source src={`data:${justContentType};base64,${base64Body}`} />
           </audio>
         </div>
       );
     } else if (previewMode === PREVIEW_MODE_RAW) {
       const match = contentType.match(/charset=([\w-]+)/);
-      const charset = (match && match.length >= 2) ? match[1] : 'utf-8';
+      const charset = match && match.length >= 2 ? match[1] : 'utf-8';
       return (
         <ResponseRaw
-          value={iconv.decode(bodyBuffer, charset)}
+          key={responseId}
+          value={this._decodeIconv(bodyBuffer, charset)}
           fontSize={editorFontSize}
         />
       );
-    } else { // Show everything else as "source"
+    } else {
+      // Show everything else as "source"
       const match = contentType.match(/charset=([\w-]+)/);
-      const charset = (match && match.length >= 2) ? match[1] : 'utf-8';
+      const charset = match && match.length >= 2 ? match[1] : 'utf-8';
 
       // Sometimes iconv conversion fails so fallback to regular buffer
-      let body;
-      try {
-        body = iconv.decode(bodyBuffer, charset);
-      } catch (err) {
-        body = bodyBuffer.toString();
-        console.warn('[response] Failed to decode body', err);
-      }
+      const body = this._decodeIconv(bodyBuffer, charset);
 
       // Try to detect content-types if there isn't one
       let mode;
@@ -337,6 +374,7 @@ class ResponseViewer extends React.Component<Props, State> {
 
       return (
         <CodeEditor
+          uniquenessKey={responseId}
           onClickLink={this._handleOpenLink}
           defaultValue={body}
           updateFilter={updateFilter}

@@ -1,79 +1,162 @@
-import React, {PureComponent} from 'react';
-import PropTypes from 'prop-types';
+// @flow
+import * as React from 'react';
 import autobind from 'autobind-decorator';
-import KeyValueEditor from '../../key-value-editor/editor';
-import {trackEvent} from '../../../../common/analytics';
-import {AUTH_AWS_IAM} from '../../../../common/constants';
+import classnames from 'classnames';
+import OneLineEditor from '../../codemirror/one-line-editor';
+import Button from '../../base/button';
+import HelpTooltip from '../../help-tooltip';
+import type { RequestAuthentication } from '../../../../models/request';
+
+type Props = {
+  authentication: RequestAuthentication,
+  nunjucksPowerUserMode: boolean,
+  showPasswords: boolean,
+  onChange: RequestAuthentication => void,
+  handleRender: string => Promise<string>,
+  handleGetRenderContext: () => Promise<Object>,
+  handleUpdateSettingsShowPasswords: boolean => Promise<void>
+};
 
 @autobind
-class AWSAuth extends PureComponent {
-  _handleOnCreate () {
-    trackEvent('AWS Auth Editor', 'Create');
+class AWSAuth extends React.PureComponent<Props> {
+  _handleDisable() {
+    const { authentication } = this.props;
+    authentication.disabled = !authentication.disabled;
+    this.props.onChange(authentication);
   }
 
-  _handleOnDelete () {
-    trackEvent('AWS Auth Editor', 'Delete');
+  _handleChangeAccessKeyId(value: string) {
+    const { authentication } = this.props;
+    authentication.accessKeyId = value;
+    this.props.onChange(authentication);
   }
 
-  _handleToggleDisable (pair) {
-    const label = pair.disabled ? 'Disable' : 'Enable';
-    trackEvent('AWS Auth Editor', 'Toggle', label);
+  _handleChangeSecretAccessKey(value: string) {
+    const { authentication } = this.props;
+    authentication.secretAccessKey = value;
+    this.props.onChange(authentication);
   }
 
-  _handleChange (pairs) {
-    const pair = {
-      type: AUTH_AWS_IAM,
-      accessKeyId: pairs.length ? pairs[0].name : '',
-      secretAccessKey: pairs.length ? pairs[0].value : '',
-      disabled: pairs.length ? pairs[0].disabled : false
-    };
-
-    this.props.onChange(pair);
+  _handleChangeRegion(value: string) {
+    const { authentication } = this.props;
+    authentication.region = value;
+    this.props.onChange(authentication);
   }
 
-  render () {
+  _handleChangeService(value: string) {
+    const { authentication } = this.props;
+    authentication.service = value;
+    this.props.onChange(authentication);
+  }
+
+  _handleChangeSessionToken(value: string) {
+    const { authentication } = this.props;
+    authentication.sessionToken = value;
+    this.props.onChange(authentication);
+  }
+
+  renderRow(key: string, label: string, onChange: Function, help?: string) {
     const {
       authentication,
-      showPasswords,
+      nunjucksPowerUserMode,
       handleRender,
-      handleGetRenderContext,
-      nunjucksPowerUserMode
+      handleGetRenderContext
     } = this.props;
 
-    const pairs = [{
-      name: authentication.accessKeyId || '',
-      value: authentication.secretAccessKey || '',
-      disabled: authentication.disabled || false
-    }];
-
     return (
-      <KeyValueEditor
-        pairs={pairs}
-        maxPairs={1}
-        disableDelete
-        handleRender={handleRender}
-        handleGetRenderContext={handleGetRenderContext}
-        nunjucksPowerUserMode={nunjucksPowerUserMode}
-        namePlaceholder="AWS_ACCESS_KEY_ID"
-        valuePlaceholder="AWS_SECRET_ACCESS_KEY"
-        valueInputType={showPasswords ? 'text' : 'password'}
-        onToggleDisable={this._handleToggleDisable}
-        onCreate={this._handleOnCreate}
-        onDelete={this._handleOnDelete}
-        onChange={this._handleChange}
-      />
+      <tr key={key}>
+        <td className="pad-right no-wrap valign-middle">
+          <label htmlFor="sessionToken" className="label--small no-pad">
+            {label}
+            {help ? <HelpTooltip>{help}</HelpTooltip> : null}
+          </label>
+        </td>
+        <td className="wide">
+          <div
+            className={classnames(
+              'form-control form-control--underlined no-margin',
+              {
+                'form-control--inactive': authentication.disabled
+              }
+            )}>
+            <OneLineEditor
+              id={key}
+              onChange={onChange}
+              defaultValue={authentication[key] || ''}
+              nunjucksPowerUserMode={nunjucksPowerUserMode}
+              render={handleRender}
+              getRenderContext={handleGetRenderContext}
+            />
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  render() {
+    const { authentication } = this.props;
+    return (
+      <div className="pad">
+        <table>
+          <tbody>
+            {this.renderRow(
+              'accessKeyId',
+              'Access Key ID',
+              this._handleChangeAccessKeyId
+            )}
+            {this.renderRow(
+              'secretAccessKey',
+              'Secret Access Key',
+              this._handleChangeSecretAccessKey
+            )}
+            {this.renderRow(
+              'region',
+              'Region',
+              this._handleChangeRegion,
+              "will be calculated from hostname or host or use 'us-east-1' if not given"
+            )}
+            {this.renderRow(
+              'service',
+              'Service',
+              this._handleChangeService,
+              'will be calculated from hostname or host if not given'
+            )}
+            {this.renderRow(
+              'sessionToken',
+              'Session Token',
+              this._handleChangeSessionToken,
+              'Optional token used for multi-factor authentication'
+            )}
+            <tr>
+              <td className="pad-right no-wrap valign-middle">
+                <label htmlFor="enabled" className="label--small no-pad">
+                  Enabled
+                </label>
+              </td>
+              <td className="wide">
+                <div className="form-control form-control--underlined">
+                  <Button
+                    className="btn btn--super-duper-compact"
+                    id="enabled"
+                    onClick={this._handleDisable}
+                    value={!authentication.disabled}
+                    title={
+                      authentication.disabled ? 'Enable item' : 'Disable item'
+                    }>
+                    {authentication.disabled ? (
+                      <i className="fa fa-square-o" />
+                    ) : (
+                      <i className="fa fa-check-square-o" />
+                    )}
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     );
   }
 }
-
-AWSAuth.propTypes = {
-  handleRender: PropTypes.func.isRequired,
-  handleGetRenderContext: PropTypes.func.isRequired,
-  handleUpdateSettingsShowPasswords: PropTypes.func.isRequired,
-  nunjucksPowerUserMode: PropTypes.bool.isRequired,
-  onChange: PropTypes.func.isRequired,
-  authentication: PropTypes.object.isRequired,
-  showPasswords: PropTypes.bool.isRequired
-};
 
 export default AWSAuth;

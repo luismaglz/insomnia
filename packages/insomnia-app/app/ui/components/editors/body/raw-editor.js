@@ -1,30 +1,34 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import CodeEditor from '../../codemirror/code-editor';
 
 @autobind
 class RawEditor extends PureComponent {
-  render () {
+  render() {
     const {
-      contentType,
+      className,
       content,
+      contentType,
       fontSize,
+      getRenderContext,
       indentSize,
       keyMap,
-      render,
-      getRenderContext,
-      nunjucksPowerUserMode,
       lineWrapping,
+      indentWithTabs,
+      nunjucksPowerUserMode,
       onChange,
-      className
+      render,
+      uniquenessKey
     } = this.props;
 
     return (
       <CodeEditor
         manualPrettify
+        uniquenessKey={uniquenessKey}
         fontSize={fontSize}
         indentSize={indentSize}
+        indentWithTabs={indentWithTabs}
         keyMap={keyMap}
         defaultValue={content}
         className={className}
@@ -50,11 +54,13 @@ RawEditor.propTypes = {
   keyMap: PropTypes.string.isRequired,
   lineWrapping: PropTypes.bool.isRequired,
   nunjucksPowerUserMode: PropTypes.bool.isRequired,
+  uniquenessKey: PropTypes.string.isRequired,
 
   // Optional
   className: PropTypes.string,
   render: PropTypes.func,
-  getRenderContext: PropTypes.func
+  getRenderContext: PropTypes.func,
+  indentWithTabs: PropTypes.bool
 };
 
 export default RawEditor;

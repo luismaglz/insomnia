@@ -1,7 +1,7 @@
 // @flow
-import type {BaseModel} from './index';
+import type { BaseModel } from './index';
 import * as db from '../common/database';
-import {UPDATE_CHANNEL_STABLE} from '../common/constants';
+import { UPDATE_CHANNEL_STABLE } from '../common/constants';
 
 type BaseSettings = {
   showPasswords: boolean,
@@ -11,6 +11,7 @@ type BaseSettings = {
   editorIndentSize: number,
   editorLineWrapping: boolean,
   editorKeyMap: string,
+  editorIndentWithTabs: boolean,
   httpProxy: string,
   httpsProxy: string,
   noProxy: string,
@@ -21,12 +22,12 @@ type BaseSettings = {
   autoHideMenuBar: boolean,
   theme: string,
   maxRedirects: number,
-  disableAnalyticsTracking: boolean,
   pluginPath: string,
   nunjucksPowerUserMode: boolean,
   deviceId: string | null,
   updateChannel: string,
-  updateAutomatically: boolean
+  updateAutomatically: boolean,
+  environmentHighlightColorStyle: string
 };
 
 export type Settings = BaseModel & BaseSettings;
@@ -36,7 +37,7 @@ export const type = 'Settings';
 export const prefix = 'set';
 export const canDuplicate = false;
 
-export function init (): BaseSettings {
+export function init(): BaseSettings {
   return {
     showPasswords: false,
     useBulkHeaderEditor: false,
@@ -45,6 +46,7 @@ export function init (): BaseSettings {
     editorIndentSize: 2,
     editorLineWrapping: true,
     editorKeyMap: 'default',
+    editorIndentWithTabs: true,
     httpProxy: '',
     httpsProxy: '',
     noProxy: '',
@@ -55,20 +57,20 @@ export function init (): BaseSettings {
     forceVerticalLayout: false,
     autoHideMenuBar: false,
     theme: 'default',
-    disableAnalyticsTracking: false,
     pluginPath: '',
     nunjucksPowerUserMode: false,
     deviceId: null,
     updateChannel: UPDATE_CHANNEL_STABLE,
-    updateAutomatically: true
+    updateAutomatically: true,
+    environmentHighlightColorStyle: 'sidebar-indicator'
   };
 }
 
-export function migrate (doc: Settings): Settings {
+export function migrate(doc: Settings): Settings {
   return doc;
 }
 
-export async function all (patch: Object = {}): Promise<Array<Settings>> {
+export async function all(patch: Object = {}): Promise<Array<Settings>> {
   const settings = await db.all(type);
   if (settings.length === 0) {
     return [await getOrCreate()];
@@ -77,15 +79,18 @@ export async function all (patch: Object = {}): Promise<Array<Settings>> {
   }
 }
 
-export async function create (patch: Object = {}): Promise<Settings> {
+export async function create(patch: Object = {}): Promise<Settings> {
   return db.docCreate(type, patch);
 }
 
-export async function update (settings: Settings, patch: Object): Promise<Settings> {
+export async function update(
+  settings: Settings,
+  patch: Object
+): Promise<Settings> {
   return db.docUpdate(settings, patch);
 }
 
-export async function getOrCreate (patch: Object = {}): Promise<Settings> {
+export async function getOrCreate(patch: Object = {}): Promise<Settings> {
   const results = await db.all(type);
   if (results.length === 0) {
     return create(patch);

@@ -1,13 +1,13 @@
 // @flow
 import nunjucks from 'nunjucks';
 import BaseExtension from './base-extension';
-import type {NunjucksParsedTag} from './utils';
+import type { NunjucksParsedTag } from './utils';
 import * as plugins from '../plugins/index';
 
 export class RenderError extends Error {
   message: string;
   path: string | null;
-  location: {line: number, column: number};
+  location: { line: number, column: number };
   type: string;
   reason: string;
 }
@@ -30,7 +30,10 @@ let nunjucksAll = null;
  * @param {Object} [config.path] - Path to include in the error message
  * @param {Object} [config.renderMode] - Only render variables (not tags)
  */
-export function render (text: string, config: Object = {}): Promise<string> {
+export function render(
+  text: string,
+  config: { context?: Object, path?: string, renderMode?: string } = {}
+): Promise<string> {
   const context = config.context || {};
   const path = config.path || null;
   const renderMode = config.renderMode || RENDER_ALL;
@@ -49,14 +52,16 @@ export function render (text: string, config: Object = {}): Promise<string> {
         const location = err.message.match(/\[Line (\d)+, Column (\d)*]/);
         const line = location ? parseInt(location[1]) : 1;
         const column = location ? parseInt(location[2]) : 1;
-        const reason = err.message.includes('attempted to output null or undefined value')
+        const reason = err.message.includes(
+          'attempted to output null or undefined value'
+        )
           ? 'undefined'
           : 'error';
 
         const newError = new RenderError(sanitizedMsg);
-        newError.path = path || null;
+        newError.path = path || '';
         newError.message = sanitizedMsg;
-        newError.location = {line, column};
+        newError.location = { line, column };
         newError.type = 'render';
         newError.reason = reason;
         reject(newError);
@@ -70,7 +75,7 @@ export function render (text: string, config: Object = {}): Promise<string> {
 /**
  * Reload Nunjucks environments. Useful for if plugins change.
  */
-export function reload (): void {
+export function reload(): void {
   nunjucksAll = null;
   nunjucksVariablesOnly = null;
   nunjucksTagsOnly = null;
@@ -79,13 +84,13 @@ export function reload (): void {
 /**
  * Get definitions of template tags
  */
-export async function getTagDefinitions (): Promise<Array<NunjucksParsedTag>> {
+export async function getTagDefinitions(): Promise<Array<NunjucksParsedTag>> {
   const env = await getNunjucks(RENDER_ALL);
 
   return Object.keys(env.extensions)
     .map(k => env.extensions[k])
     .filter(ext => !ext.isDeprecated())
-    .sort((a, b) => a.getPriority() > b.getPriority() ? 1 : -1)
+    .sort((a, b) => (a.getPriority() > b.getPriority() ? 1 : -1))
     .map(ext => ({
       name: ext.getTag(),
       displayName: ext.getName(),
@@ -94,7 +99,7 @@ export async function getTagDefinitions (): Promise<Array<NunjucksParsedTag>> {
     }));
 }
 
-async function getNunjucks (renderMode: string) {
+async function getNunjucks(renderMode: string) {
   if (renderMode === RENDER_VARS && nunjucksVariablesOnly) {
     return nunjucksVariablesOnly;
   }
@@ -143,11 +148,11 @@ async function getNunjucks (renderMode: string) {
   const nj = nunjucks.configure(config);
 
   const allTemplateTagPlugins = await plugins.getTemplateTags();
-  const allExtensions = allTemplateTagPlugins.map(p => p.templateTag);
+  const allExtensions = allTemplateTagPlugins;
   for (let i = 0; i < allExtensions.length; i++) {
-    const ext = allExtensions[i];
-    ext.priority = ext.priority || i * 100;
-    const instance = new BaseExtension(ext);
+    const { templateTag, plugin } = allExtensions[i];
+    templateTag.priority = templateTag.priority || i * 100;
+    const instance = new BaseExtension(templateTag, plugin);
     nj.addExtension(instance.getTag(), instance);
 
     // Hidden helper filter to debug complicated things

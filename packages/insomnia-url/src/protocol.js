@@ -4,18 +4,19 @@
  * @param [defaultProto='http:'] {string} - default protocol
  * @returns {string}
  */
-module.exports.setDefaultProtocol = function (url, defaultProto) {
+module.exports.setDefaultProtocol = function(url, defaultProto) {
+  const trimmedUrl = url.trim();
   defaultProto = defaultProto || 'http:';
 
   // If no url, don't bother returning anything
-  if (!url) {
+  if (!trimmedUrl) {
     return '';
   }
 
   // Default the proto if it doesn't exist
-  if (url.indexOf('://') === -1) {
-    url = `${defaultProto}//${url}`;
+  if (trimmedUrl.indexOf('://') === -1) {
+    return `${defaultProto}//${trimmedUrl}`;
   }
 
-  return url;
+  return trimmedUrl;
 };

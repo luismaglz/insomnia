@@ -8,7 +8,7 @@ module.exports.id = 'har';
 module.exports.name = 'HAR 1.2';
 module.exports.description = 'Importer for HTTP Archive 1.2';
 
-module.exports.convert = function (rawData) {
+module.exports.convert = function(rawData) {
   requestCount = 1;
 
   let data;
@@ -21,7 +21,7 @@ module.exports.convert = function (rawData) {
   }
 };
 
-function importRequest (request) {
+function importRequest(request) {
   const cookieHeaderValue = mapImporter(request.cookies, importCookieToHeaderString).join('; ');
   const headers = mapImporter(request.headers, importHeader);
 
@@ -32,7 +32,7 @@ function importRequest (request) {
     existingCookieHeader.value += `; ${cookieHeaderValue}`;
   } else if (cookieHeaderValue) {
     // No existing cookie header, so let's make a new one
-    headers.push({name: 'Cookie', value: cookieHeaderValue});
+    headers.push({ name: 'Cookie', value: cookieHeaderValue });
   }
 
   const count = requestCount++;
@@ -51,31 +51,31 @@ function importRequest (request) {
     // Authentication isn't part of HAR, but we should be able to
     // sniff for things like Basic Authentication headers and pull
     // out the auth info
-    authentication: {},
+    authentication: {}
   };
 }
 
-function importUrl (url) {
+function importUrl(url) {
   return url;
 }
 
-function importMethod (method) {
+function importMethod(method) {
   return method.toUpperCase();
 }
 
-function importCookieToHeaderString (obj) {
-  return `${obj.name}=${obj.value}`
+function importCookieToHeaderString(obj) {
+  return `${obj.name}=${obj.value}`;
 }
 
-function importHeader (obj) {
+function importHeader(obj) {
   return removeComment(obj);
 }
 
-function importQueryString (obj) {
+function importQueryString(obj) {
   return removeComment(obj);
 }
 
-function importPostData (obj) {
+function importPostData(obj) {
   if (!obj) {
     return {};
   }
@@ -83,7 +83,7 @@ function importPostData (obj) {
   if (obj.params && obj.params.length) {
     const mimeType = obj.mimeType || 'application/x-www-form-urlencoded';
     const params = obj.params.map(p => {
-      const item = {name: p.name};
+      const item = { name: p.name };
       if (p.fileName) {
         item.fileName = p.fileName;
       } else {
@@ -92,7 +92,7 @@ function importPostData (obj) {
       return item;
     });
 
-    return {params, mimeType};
+    return { params, mimeType };
   } else {
     return {
       mimeType: obj.mimeType || '',
@@ -101,21 +101,21 @@ function importPostData (obj) {
   }
 }
 
-function removeComment (obj) {
+function removeComment(obj) {
   const newObj = Object.assign({}, obj);
   delete newObj['comment'];
   return newObj;
 }
 
-function mapImporter (arr, importFn) {
+function mapImporter(arr, importFn) {
   if (!arr) {
     return [];
   } else {
-    return arr.map(importFn)
+    return arr.map(importFn);
   }
 }
 
-function extractRequests (harRoot) {
+function extractRequests(harRoot) {
   const requests = [];
 
   const log = harRoot.log;
@@ -127,6 +127,11 @@ function extractRequests (harRoot) {
   }
 
   for (const entry of log.entries) {
+    if (entry.comment && entry.request && !entry.request.comment) {
+      // Preserve the entry comment for request name generation
+      entry.request.comment = entry.comment;
+    }
+
     requests.push(entry.request);
   }
 

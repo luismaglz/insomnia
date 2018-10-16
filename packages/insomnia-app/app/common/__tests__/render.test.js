@@ -1,13 +1,15 @@
 import * as renderUtils from '../render';
 import * as models from '../../models';
-import {globalBeforeEach} from '../../__jest__/before-each';
+import { globalBeforeEach } from '../../__jest__/before-each';
 
 jest.mock('electron');
 
 describe('render()', () => {
   beforeEach(globalBeforeEach);
   it('renders hello world', async () => {
-    const rendered = await renderUtils.render('Hello {{ msg }}!', {msg: 'World'});
+    const rendered = await renderUtils.render('Hello {{ msg }}!', {
+      msg: 'World'
+    });
     expect(rendered).toBe('Hello World!');
   });
 
@@ -23,7 +25,7 @@ describe('render()', () => {
 
   it('fails on invalid template', async () => {
     try {
-      await renderUtils.render('Hello {{ msg }!', {msg: 'World'});
+      await renderUtils.render('Hello {{ msg }!', { msg: 'World' });
       fail('Render should have failed');
     } catch (err) {
       expect(err.message).toContain('expected variable end');
@@ -37,22 +39,22 @@ describe('buildRenderContext()', () => {
     const ancestors = [
       {
         type: models.requestGroup.type,
-        environment: {foo: 'parent', ancestor: true}
+        environment: { foo: 'parent', ancestor: true }
       },
       {
         type: models.requestGroup.type,
-        environment: {foo: 'grandparent', ancestor: true}
+        environment: { foo: 'grandparent', ancestor: true }
       }
     ];
 
     const rootEnvironment = {
       type: models.environment.type,
-      data: {foo: 'root', root: true}
+      data: { foo: 'root', root: true }
     };
 
     const subEnvironment = {
       type: models.environment.type,
-      data: {foo: 'sub', sub: true}
+      data: { foo: 'sub', sub: true }
     };
 
     const context = await renderUtils.buildRenderContext(
@@ -70,11 +72,13 @@ describe('buildRenderContext()', () => {
   });
 
   it('rendered recursive should not infinite loop', async () => {
-    const ancestors = [{
-      // Sub Environment
-      type: models.requestGroup.type,
-      environment: {recursive: '{{ recursive }}/hello'}
-    }];
+    const ancestors = [
+      {
+        // Sub Environment
+        type: models.requestGroup.type,
+        environment: { recursive: '{{ recursive }}/hello' }
+      }
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
 
@@ -84,18 +88,92 @@ describe('buildRenderContext()', () => {
     });
   });
 
-  it('render up to 3 recursion levels', async () => {
-    const ancestors = [{
-      // Sub Environment
-      type: models.requestGroup.type,
-      environment: {
-        d: '/d',
-        c: '/c{{ d }}',
-        b: '/b{{ c }}',
-        a: '/a{{ b }}',
-        test: 'http://insomnia.rest{{ a }}'
+  it('does not recursive render if itself is not used in var', async () => {
+    const root = {
+      type: models.environment.type,
+      data: {
+        proto: 'http',
+        domain: 'base.com',
+        url: '{{ proto }}://{{ domain }}'
       }
-    }];
+    };
+
+    const sub = {
+      type: models.environment.type,
+      data: {
+        proto: 'https',
+        domain: 'sub.com',
+        port: 8000,
+        url: '{{ proto }}://{{ domain }}:{{ port }}'
+      }
+    };
+
+    const ancestors = [
+      {
+        // Folder Environment
+        type: models.requestGroup.type,
+        environment: {
+          proto: 'https',
+          domain: 'folder.com',
+          port: 7000
+        }
+      }
+    ];
+
+    const context = await renderUtils.buildRenderContext(ancestors, root, sub);
+
+    expect(context).toEqual({
+      proto: 'https',
+      domain: 'folder.com',
+      port: 7000,
+      url: 'https://folder.com:7000'
+    });
+  });
+
+  it('does the thing', async () => {
+    const root = {
+      type: models.environment.type,
+      data: { url: 'insomnia.rest' }
+    };
+
+    const sub = {
+      type: models.environment.type,
+      data: { url: '{{ url }}/sub' }
+    };
+
+    const ancestors = [
+      {
+        // Folder Environment
+        type: models.requestGroup.type,
+        environment: {
+          url: '{{ url }}/{{ name }}',
+          name: 'folder'
+        }
+      }
+    ];
+
+    const context = await renderUtils.buildRenderContext(ancestors, root, sub);
+
+    expect(context).toEqual({
+      url: 'insomnia.rest/sub/folder',
+      name: 'folder'
+    });
+  });
+
+  it('render up to 3 recursion levels', async () => {
+    const ancestors = [
+      {
+        // Sub Environment
+        type: models.requestGroup.type,
+        environment: {
+          d: '/d',
+          c: '/c{{ d }}',
+          b: '/b{{ c }}',
+          a: '/a{{ b }}',
+          test: 'http://insomnia.rest{{ a }}'
+        }
+      }
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
 
@@ -109,108 +187,128 @@ describe('buildRenderContext()', () => {
   });
 
   it('rendered sibling environment variables', async () => {
-    const ancestors = [{
-      // Sub Environment
-      type: models.requestGroup.type,
-      environment: {
-        sibling: 'sibling',
-        test: '{{ sibling }}/hello'
+    const ancestors = [
+      {
+        // Sub Environment
+        type: models.requestGroup.type,
+        environment: {
+          sibling: 'sibling',
+          test: '{{ sibling }}/hello'
+        }
       }
-    }];
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
 
-    expect(context).toEqual({sibling: 'sibling', test: 'sibling/hello'});
+    expect(context).toEqual({ sibling: 'sibling', test: 'sibling/hello' });
   });
 
   it('rendered parent environment variables', async () => {
-    const ancestors = [{
-      name: 'Parent',
-      type: models.requestGroup.type,
-      environment: {
-        test: '{{ grandparent }} parent'
+    const ancestors = [
+      {
+        name: 'Parent',
+        type: models.requestGroup.type,
+        environment: {
+          test: '{{ grandparent }} parent'
+        }
+      },
+      {
+        name: 'Grandparent',
+        type: models.requestGroup.type,
+        environment: {
+          grandparent: 'grandparent'
+        }
       }
-    }, {
-      name: 'Grandparent',
-      type: models.requestGroup.type,
-      environment: {
-        grandparent: 'grandparent'
-      }
-    }];
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
 
-    expect(context).toEqual({grandparent: 'grandparent', test: 'grandparent parent'});
+    expect(context).toEqual({
+      grandparent: 'grandparent',
+      test: 'grandparent parent'
+    });
   });
 
   it('rendered parent same name environment variables', async () => {
-    const ancestors = [{
-      name: 'Parent',
-      type: models.requestGroup.type,
-      environment: {
-        base_url: '{{ base_url }}/resource'
+    const ancestors = [
+      {
+        name: 'Parent',
+        type: models.requestGroup.type,
+        environment: {
+          base_url: '{{ base_url }}/resource'
+        }
+      },
+      {
+        name: 'Grandparent',
+        type: models.requestGroup.type,
+        environment: {
+          base_url: 'https://insomnia.rest'
+        }
       }
-    }, {
-      name: 'Grandparent',
-      type: models.requestGroup.type,
-      environment: {
-        base_url: 'https://insomnia.rest'
-      }
-    }];
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
 
-    expect(context).toEqual({base_url: 'https://insomnia.rest/resource'});
+    expect(context).toEqual({ base_url: 'https://insomnia.rest/resource' });
   });
 
   it('rendered parent, ignoring sibling environment variables', async () => {
-    const ancestors = [{
-      name: 'Parent',
-      type: models.requestGroup.type,
-      environment: {
-        host: 'parent.com'
-      }
-    }, {
-      name: 'Grandparent',
-      type: models.requestGroup.type,
-      environment: {
-        host: 'grandparent.com',
-        node: {
-          admin: 'admin',
-          test: 'test',
-          port: 8080
-        },
-        urls: {
-          admin: 'https://{{ host }}/{{ node.admin }}',
-          test: 'https://{{ host }}/{{ node.test }}'
+    const ancestors = [
+      {
+        name: 'Parent',
+        type: models.requestGroup.type,
+        environment: {
+          host: 'parent.com'
+        }
+      },
+      {
+        name: 'Grandparent',
+        type: models.requestGroup.type,
+        environment: {
+          host: 'grandparent.com',
+          node: {
+            admin: 'admin',
+            test: 'test',
+            port: 8080
+          },
+          urls: {
+            admin: 'https://{{ host }}/{{ node.admin }}',
+            test: 'https://{{ host }}/{{ node.test }}'
+          }
         }
       }
-    }];
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
-    const result = await renderUtils.render('{{ urls.admin }}/foo', context);
-
-    expect(result).toEqual('https://parent.com/admin/foo');
+    expect(await renderUtils.render('{{ urls.admin }}/foo', context)).toBe(
+      'https://parent.com/admin/foo'
+    );
+    expect(await renderUtils.render('{{ urls.test }}/foo', context)).toBe(
+      'https://parent.com/test/foo'
+    );
   });
 
   it('renders child environment variables', async () => {
-    const ancestors = [{
-      name: 'Parent',
-      type: models.requestGroup.type,
-      environment: {
-        parent: 'parent'
+    const ancestors = [
+      {
+        name: 'Parent',
+        type: models.requestGroup.type,
+        environment: {
+          parent: 'parent'
+        }
+      },
+      {
+        name: 'Grandparent',
+        type: models.requestGroup.type,
+        environment: {
+          test: '{{ parent }} grandparent'
+        }
       }
-    }, {
-      name: 'Grandparent',
-      type: models.requestGroup.type,
-      environment: {
-        test: '{{ parent }} grandparent'
-      }
-    }];
+    ];
 
     const context = await renderUtils.buildRenderContext(ancestors);
 
-    expect(context).toEqual({parent: 'parent', test: 'parent grandparent'});
+    expect(context).toEqual({ parent: 'parent', test: 'parent grandparent' });
   });
 
   it('cascades properly and renders', async () => {
@@ -234,15 +332,16 @@ describe('buildRenderContext()', () => {
 
     const subEnvironment = {
       type: models.environment.type,
-      data: {winner: 'sub', sub: true, base_url: 'https://insomnia.rest'}
+      data: { winner: 'sub', sub: true, base_url: 'https://insomnia.rest' }
     };
 
     const rootEnvironment = {
       type: models.environment.type,
-      data: {winner: 'root', root: true, base_url: 'ignore this'}
+      data: { winner: 'root', root: true, base_url: 'ignore this' }
     };
 
-    const context = await renderUtils.buildRenderContext(ancestors,
+    const context = await renderUtils.buildRenderContext(
+      ancestors,
       rootEnvironment,
       subEnvironment
     );
@@ -254,6 +353,33 @@ describe('buildRenderContext()', () => {
       winner: 'folder parent',
       root: true,
       sub: true
+    });
+  });
+
+  it('handles variables being used in tags', async () => {
+    const rootEnvironment = {
+      type: models.environment.type,
+      data: {
+        hash_input: '{{ orderId }}{{ secret }}',
+        hash_input_expected: '123456789012345ThisIsATopSecretValue',
+        orderId: 123456789012345,
+        password: "{% hash 'sha512', 'hex', hash_input %}",
+        password_expected: "{% hash 'sha512', 'hex', hash_input_expected %}",
+        secret: 'ThisIsATopSecretValue'
+      }
+    };
+
+    const context = await renderUtils.buildRenderContext([], rootEnvironment);
+
+    expect(context).toEqual({
+      hash_input: '123456789012345ThisIsATopSecretValue',
+      hash_input_expected: '123456789012345ThisIsATopSecretValue',
+      orderId: 123456789012345,
+      password:
+        'ea84d15f33d3f9e9098fe01659b1ea0599d345770bba20ba98bf9056676a83ffe6b5528b2451ad04badbf690cf3009a94c510121cc6897045f8bb4ba0826134c',
+      password_expected:
+        'ea84d15f33d3f9e9098fe01659b1ea0599d345770bba20ba98bf9056676a83ffe6b5528b2451ad04badbf690cf3009a94c510121cc6897045f8bb4ba0826134c',
+      secret: 'ThisIsATopSecretValue'
     });
   });
 
@@ -275,11 +401,14 @@ describe('buildRenderContext()', () => {
 describe('render()', () => {
   beforeEach(globalBeforeEach);
   it('correctly renders simple Object', async () => {
-    const newObj = await renderUtils.render({
-      foo: '{{ foo }}',
-      bar: 'bar',
-      baz: '{{ bad }}'
-    }, {foo: 'bar', bad: 'hi'});
+    const newObj = await renderUtils.render(
+      {
+        foo: '{{ foo }}',
+        bar: 'bar',
+        baz: '{{ bad }}'
+      },
+      { foo: 'bar', bad: 'hi' }
+    );
 
     expect(newObj).toEqual({
       foo: 'bar',
@@ -303,7 +432,7 @@ describe('render()', () => {
       }
     };
 
-    const newObj = await renderUtils.render(obj, {foo: 'bar'});
+    const newObj = await renderUtils.render(obj, { foo: 'bar' });
 
     expect(newObj).toEqual({
       foo: 'bar',
@@ -326,11 +455,14 @@ describe('render()', () => {
 
   it('fails on bad template', async () => {
     try {
-      await renderUtils.render({
-        foo: '{{ foo }',
-        bar: 'bar',
-        baz: '{{ bad }}'
-      }, {foo: 'bar'});
+      await renderUtils.render(
+        {
+          foo: '{{ foo }',
+          bar: 'bar',
+          baz: '{{ bad }}'
+        },
+        { foo: 'bar' }
+      );
       fail('Render should have failed');
     } catch (err) {
       expect(err.message).toContain('expected variable end');
@@ -339,7 +471,7 @@ describe('render()', () => {
 
   it('keep on error setting', async () => {
     const template = '{{ foo }} {% invalid "hi" %}';
-    const context = {foo: 'bar'};
+    const context = { foo: 'bar' };
 
     const resultOnlyVars = await renderUtils.render(
       template,
@@ -354,6 +486,32 @@ describe('render()', () => {
       fail('Render should not have succeeded');
     } catch (err) {
       expect(err.message).toBe('unknown block tag: invalid');
+    }
+  });
+
+  it('outputs correct error path', async () => {
+    const template = {
+      foo: [{ bar: '{% foo %}' }]
+    };
+
+    try {
+      await renderUtils.render(template);
+      fail('Should have failed to render');
+    } catch (err) {
+      expect(err.path).toBe('foo[0].bar');
+    }
+  });
+
+  it('outputs correct error path when private first node', async () => {
+    const template = {
+      _foo: { _bar: { baz: '{% foo %}' } }
+    };
+
+    try {
+      await renderUtils.render(template);
+      fail('Should have failed to render');
+    } catch (err) {
+      expect(err.path).toBe('_bar.baz');
     }
   });
 });

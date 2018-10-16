@@ -1,24 +1,30 @@
 // @flow
-import type {Request} from '../models/request';
-import type {BaseModel} from '../models/index';
+import type { Request } from '../models/request';
+import type { BaseModel } from '../models/index';
 
-import {setDefaultProtocol} from 'insomnia-url';
+import { setDefaultProtocol } from 'insomnia-url';
 import clone from 'clone';
 import * as models from '../models';
+import { CONTENT_TYPE_GRAPHQL } from '../common/constants';
 import * as db from './database';
 import * as templating from '../templating';
-import type {CookieJar} from '../models/cookie-jar';
-import type {Environment} from '../models/environment';
+import type { CookieJar } from '../models/cookie-jar';
+import type { Environment } from '../models/environment';
 
 export const KEEP_ON_ERROR = 'keep';
 export const THROW_ON_ERROR = 'throw';
 
+export type RenderPurpose = 'send' | 'general';
+
+export const RENDER_PURPOSE_SEND: RenderPurpose = 'send';
+export const RENDER_PURPOSE_GENERAL: RenderPurpose = 'general';
+
 export type RenderedRequest = Request & {
-  cookies: Array<{name: string, value: string, disabled?: boolean}>,
+  cookies: Array<{ name: string, value: string, disabled?: boolean }>,
   cookieJar: CookieJar
 };
 
-export async function buildRenderContext (
+export async function buildRenderContext(
   ancestors: Array<BaseModel> | null,
   rootEnvironment: Environment | null,
   subEnvironment: Environment | null,
@@ -35,8 +41,9 @@ export async function buildRenderContext (
   }
 
   for (const doc of (ancestors || []).reverse()) {
-    if (typeof doc.environment === 'object' && doc.environment !== null) {
-      envObjects.push(doc.environment);
+    const environment = (doc: any).environment;
+    if (typeof environment === 'object' && environment !== null) {
+      envObjects.push(environment);
     }
   }
 
@@ -46,21 +53,11 @@ export async function buildRenderContext (
   // way we can keep same-name variables from the parent context.
   const renderContext = baseContext;
   for (const envObject: Object of envObjects) {
-    // Sort the keys that may have Nunjucks last, so that other keys get
-    // defined first. Very important if env variables defined in same obj
-    // (eg. {"foo": "{{ bar }}", "bar": "Hello World!"})
-    const keys = Object.keys(envObject).sort((k1, k2) => {
-      if (typeof envObject[k1] === 'string') {
-        return envObject[k1].match(/({{)/) ? 1 : -1;
-      } else {
-        return 0;
-      }
-    });
-
+    const keys = _getOrderedEnvironmentKeys(envObject);
     for (const key of keys) {
       /*
-       * If we're overwriting a string, try to render it first with the base as
-       * a context. This allows for the following scenario:
+       * If we're overwriting a string, try to render it first using the same key from the base
+       * environment to support same-variable recursion. This allows for the following scenario:
        *
        * base:  { base_url: 'google.com' }
        * obj:   { base_url: '{{ base_url }}/foo' }
@@ -70,13 +67,22 @@ export async function buildRenderContext (
        * original base_url of google.com would be lost.
        */
       if (typeof renderContext[key] === 'string') {
-        renderContext[key] = await render(
-          envObject[key],
-          renderContext,
-          null,
-          KEEP_ON_ERROR,
-          'Environment'
-        );
+        const isSelfRecursive = envObject[key].match(`{{ ?${key}[ |][^}]*}}`);
+
+        if (isSelfRecursive) {
+          // If we're overwriting a variable that contains itself, make sure we
+          // render it first
+          renderContext[key] = await render(
+            envObject[key],
+            renderContext, // Only render with key being overwritten
+            null,
+            KEEP_ON_ERROR,
+            'Environment'
+          );
+        } else {
+          // Otherwise it's just a regular replacement
+          renderContext[key] = envObject[key];
+        }
       } else {
         renderContext[key] = envObject[key];
       }
@@ -87,14 +93,17 @@ export async function buildRenderContext (
   let finalRenderContext = renderContext;
 
   // Render recursive references.
+  const keys = _getOrderedEnvironmentKeys(finalRenderContext);
   for (let i = 0; i < 3; i++) {
-    finalRenderContext = await render(
-      finalRenderContext,
-      finalRenderContext,
-      null,
-      KEEP_ON_ERROR,
-      'Environment'
-    );
+    for (const key of keys) {
+      finalRenderContext[key] = await render(
+        finalRenderContext[key],
+        finalRenderContext,
+        null,
+        KEEP_ON_ERROR,
+        'Environment'
+      );
+    }
   }
 
   return finalRenderContext;
@@ -109,7 +118,7 @@ export async function buildRenderContext (
  * @param name - name to include in error message
  * @return {Promise.<*>}
  */
-export async function render<T> (
+export async function render<T>(
   obj: T,
   context: Object = {},
   blacklistPathRegex: RegExp | null = null,
@@ -119,7 +128,7 @@ export async function render<T> (
   // Make a deep copy so no one gets mad :)
   const newObj = clone(obj);
 
-  async function next (x: any, path: string = name): Promise<any> {
+  async function next(x: any, path: string, first: boolean = false): Promise<any> {
     if (blacklistPathRegex && path.match(blacklistPathRegex)) {
       return x;
     }
@@ -139,13 +148,13 @@ export async function render<T> (
       // Do nothing to these types
     } else if (typeof x === 'string') {
       try {
-        x = await templating.render(x, {context, path});
+        x = await templating.render(x, { context, path });
 
         // If the variable outputs a tag, render it again. This is a common use
         // case for environment variables:
         //   {{ foo }} => {% uuid 'v4' %} => dd265685-16a3-4d76-a59c-e8264c16835a
         if (x.includes('{%')) {
-          x = await templating.render(x, {context, path});
+          x = await templating.render(x, { context, path });
         }
       } catch (err) {
         if (errorMode !== KEEP_ON_ERROR) {
@@ -165,26 +174,27 @@ export async function render<T> (
 
       const keys = Object.keys(x);
       for (const key of keys) {
-        const pathPrefix = path ? path + '.' : '';
-        x[key] = await next(x[key], `${pathPrefix}${key}`);
+        if (first && key.indexOf('_') === 0) {
+          x[key] = await next(x[key], path);
+        } else {
+          const pathPrefix = path ? path + '.' : '';
+          x[key] = await next(x[key], `${pathPrefix}${key}`);
+        }
       }
     }
 
     return x;
   }
 
-  return next(newObj);
+  return next(newObj, name, true);
 }
 
-export async function getRenderContext (
+export async function getRenderContext(
   request: Request,
   environmentId: string,
-  ancestors: Array<BaseModel> | null = null
+  ancestors: Array<BaseModel> | null = null,
+  purpose: string | null = null
 ): Promise<Object> {
-  if (!request) {
-    return {};
-  }
-
   if (!ancestors) {
     ancestors = await db.withAncestors(request, [
       models.request.type,
@@ -198,31 +208,29 @@ export async function getRenderContext (
     throw new Error('Failed to render. Could not find workspace');
   }
 
-  const rootEnvironment = await models.environment.getOrCreateForWorkspaceId(workspace ? workspace._id : 'n/a');
+  const rootEnvironment = await models.environment.getOrCreateForWorkspaceId(
+    workspace ? workspace._id : 'n/a'
+  );
   const subEnvironment = await models.environment.getById(environmentId);
 
   // Add meta data helper function
   const baseContext = {};
   baseContext.getMeta = () => ({
-    requestId: request._id,
+    requestId: request ? request._id : null,
     workspaceId: workspace ? workspace._id : 'n/a'
   });
 
-  // Generate the context we need to render
-  const context = await buildRenderContext(
-    ancestors,
-    rootEnvironment,
-    subEnvironment,
-    baseContext
-  );
+  baseContext.getPurpose = () => purpose;
 
-  return context;
+  // Generate the context we need to render
+  return buildRenderContext(ancestors, rootEnvironment, subEnvironment, baseContext);
 }
 
-export async function getRenderedRequest (
+export async function getRenderedRequestAndContext(
   request: Request,
-  environmentId: string
-): Promise<RenderedRequest> {
+  environmentId: string,
+  purpose?: string
+): Promise<{ request: RenderedRequest, context: Object }> {
   const ancestors = await db.withAncestors(request, [
     models.request.type,
     models.requestGroup.type,
@@ -232,20 +240,27 @@ export async function getRenderedRequest (
   const parentId = workspace ? workspace._id : 'n/a';
   const cookieJar = await models.cookieJar.getOrCreateForParentId(parentId);
 
-  const renderContext = await getRenderContext(request, environmentId, ancestors);
+  const renderContext = await getRenderContext(request, environmentId, ancestors, purpose);
+
+  // HACK: Switch '#}' to '# }' to prevent Nunjucks from barfing
+  // https://github.com/getinsomnia/insomnia/issues/895
+  try {
+    if (request.body.text && request.body.mimeType === CONTENT_TYPE_GRAPHQL) {
+      const o = JSON.parse(request.body.text);
+      o.query = o.query.replace(/#}/g, '# }');
+      request.body.text = JSON.stringify(o);
+    }
+  } catch (err) {}
 
   // Render all request properties
-  const renderedRequest = await render(
-    request,
+  const renderResult = await render(
+    { _request: request, _cookieJar: cookieJar },
     renderContext,
     request.settingDisableRenderRequestBody ? /^body.*/ : null
   );
 
-  // Render cookies
-  const renderedCookieJar = await render(
-    cookieJar,
-    renderContext
-  );
+  const renderedRequest = renderResult._request;
+  const renderedCookieJar = renderResult._cookieJar;
 
   // Remove disabled params
   renderedRequest.parameters = renderedRequest.parameters.filter(p => !p.disabled);
@@ -267,30 +282,71 @@ export async function getRenderedRequest (
   renderedRequest.url = setDefaultProtocol(renderedRequest.url);
 
   return {
-    // Add the yummy cookies
-    // TODO: Eventually get rid of RenderedRequest type and put these elsewhere
-    cookieJar: renderedCookieJar,
-    cookies: [],
+    context: renderContext,
+    request: {
+      // Add the yummy cookies
+      // TODO: Eventually get rid of RenderedRequest type and put these elsewhere
+      cookieJar: renderedCookieJar,
+      cookies: [],
+      isPrivate: false,
 
-    // NOTE: Flow doesn't like Object.assign, so we have to do each property manually
-    // for now to convert Request to RenderedRequest.
-    _id: renderedRequest._id,
-    authentication: renderedRequest.authentication,
-    body: renderedRequest.body,
-    created: renderedRequest.created,
-    modified: renderedRequest.modified,
-    description: renderedRequest.description,
-    headers: renderedRequest.headers,
-    metaSortKey: renderedRequest.metaSortKey,
-    method: renderedRequest.method,
-    name: renderedRequest.name,
-    parameters: renderedRequest.parameters,
-    parentId: renderedRequest.parentId,
-    settingDisableRenderRequestBody: renderedRequest.settingDisableRenderRequestBody,
-    settingEncodeUrl: renderedRequest.settingEncodeUrl,
-    settingSendCookies: renderedRequest.settingSendCookies,
-    settingStoreCookies: renderedRequest.settingStoreCookies,
-    type: renderedRequest.type,
-    url: renderedRequest.url
+      // NOTE: Flow doesn't like Object.assign, so we have to do each property manually
+      // for now to convert Request to RenderedRequest.
+      _id: renderedRequest._id,
+      authentication: renderedRequest.authentication,
+      body: renderedRequest.body,
+      created: renderedRequest.created,
+      modified: renderedRequest.modified,
+      description: renderedRequest.description,
+      headers: renderedRequest.headers,
+      metaSortKey: renderedRequest.metaSortKey,
+      method: renderedRequest.method,
+      name: renderedRequest.name,
+      parameters: renderedRequest.parameters,
+      parentId: renderedRequest.parentId,
+      settingDisableRenderRequestBody: renderedRequest.settingDisableRenderRequestBody,
+      settingEncodeUrl: renderedRequest.settingEncodeUrl,
+      settingSendCookies: renderedRequest.settingSendCookies,
+      settingStoreCookies: renderedRequest.settingStoreCookies,
+      settingRebuildPath: renderedRequest.settingRebuildPath,
+      settingMaxTimelineDataSize: renderedRequest.settingMaxTimelineDataSize,
+      type: renderedRequest.type,
+      url: renderedRequest.url
+    }
   };
+}
+
+export async function getRenderedRequest(
+  request: Request,
+  environmentId: string,
+  purpose?: string
+): Promise<RenderedRequest> {
+  const result = await getRenderedRequestAndContext(request, environmentId, purpose);
+  return result.request;
+}
+
+/**
+ * Sort the keys that may have Nunjucks last, so that other keys get
+ * defined first. Very important if env variables defined in same obj
+ * (eg. {"foo": "{{ bar }}", "bar": "Hello World!"})
+ *
+ * @param v
+ * @returns {number}
+ */
+function _nunjucksSortValue(v) {
+  if (v && v.match && v.match(/({%)/)) {
+    return 3;
+  } else if (v && v.match && v.match(/({{)/)) {
+    return 2;
+  } else {
+    return 1;
+  }
+}
+
+function _getOrderedEnvironmentKeys(finalRenderContext: Object): Array<string> {
+  return Object.keys(finalRenderContext).sort((k1, k2) => {
+    const k1Sort = _nunjucksSortValue(finalRenderContext[k1]);
+    const k2Sort = _nunjucksSortValue(finalRenderContext[k2]);
+    return k1Sort - k2Sort;
+  });
 }

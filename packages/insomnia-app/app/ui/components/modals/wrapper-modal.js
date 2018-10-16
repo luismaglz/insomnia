@@ -8,42 +8,46 @@ import ModalHeader from '../base/modal-header';
 type Props = {};
 type State = {
   title: string,
-  body: React.Node
-}
+  body: React.Node,
+  tall: boolean
+};
 
 @autobind
 class WrapperModal extends React.PureComponent<Props, State> {
   modal: ?Modal;
 
-  constructor (props: Props) {
+  constructor(props: Props) {
     super(props);
 
     this.state = {
       title: '',
-      body: null
+      body: null,
+      tall: false
     };
   }
 
-  _setModalRef (m: ?Modal) {
+  _setModalRef(m: ?Modal) {
     this.modal = m;
   }
 
-  show (options: Object = {}) {
-    const {title, body} = options;
-    this.setState({title, body});
+  show(options: Object = {}) {
+    const { title, body, tall } = options;
+    this.setState({
+      title,
+      body,
+      tall: !!tall
+    });
 
     this.modal && this.modal.show();
   }
 
-  render () {
-    const {title, body} = this.state;
+  render() {
+    const { title, body, tall } = this.state;
 
     return (
-      <Modal ref={this._setModalRef}>
+      <Modal ref={this._setModalRef} tall={tall}>
         <ModalHeader>{title || 'Uh Oh!'}</ModalHeader>
-        <ModalBody className="wide pad">
-          {body}
-        </ModalBody>
+        <ModalBody>{body}</ModalBody>
       </Modal>
     );
   }

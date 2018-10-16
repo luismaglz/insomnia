@@ -10,6 +10,8 @@ import 'codemirror/mode/markdown/markdown';
 import 'codemirror/mode/python/python';
 import 'codemirror/mode/ruby/ruby';
 import 'codemirror/mode/swift/swift';
+import 'codemirror/mode/clojure/clojure';
+
 import 'codemirror/addon/display/autorefresh';
 import 'codemirror/addon/dialog/dialog';
 import 'codemirror/addon/dialog/dialog.css';
@@ -22,6 +24,7 @@ import 'codemirror/addon/fold/indent-fold';
 import 'codemirror/addon/fold/xml-fold';
 import 'codemirror/addon/hint/show-hint';
 import 'codemirror/addon/hint/show-hint.css';
+import 'codemirror/addon/comment/comment';
 import 'codemirror/addon/search/search';
 import 'codemirror/addon/search/searchcursor';
 import 'codemirror/addon/edit/matchbrackets';
@@ -39,9 +42,11 @@ import 'codemirror/keymap/emacs';
 import 'codemirror/keymap/sublime';
 import 'codemirror-graphql/hint';
 import 'codemirror-graphql/lint';
-import 'codemirror-graphql/mode';
 import 'codemirror-graphql/info';
 import 'codemirror-graphql/jump';
+import 'codemirror-graphql/mode';
+import 'codemirror-graphql/variables/lint';
+import 'codemirror-graphql/variables/mode';
 import './modes/nunjucks';
 import './modes/curl';
 import './extensions/autocomplete';
@@ -53,5 +58,5 @@ import 'codemirror/lib/codemirror.css';
 import '../../css/editor/index.less';
 
 // Make jsonlint available to the jsonlint plugin
-import {parser as jsonlint} from 'jsonlint';
+import { parser as jsonlint } from 'jsonlint';
 global.jsonlint = jsonlint;

@@ -1,11 +1,13 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import classnames from 'classnames';
-import {DEBOUNCE_MILLIS} from '../../../common/constants';
+import { DEBOUNCE_MILLIS } from '../../../common/constants';
 import Lazy from '../base/lazy';
 import KeyValueEditorRow from './row';
-import {generateId, nullFn} from '../../../common/misc';
+import { generateId, nullFn } from '../../../common/misc';
+import { Dropdown, DropdownItem, DropdownButton } from '../base/dropdown';
+import PromptButton from '../base/prompt-button';
 
 const NAME = 'name';
 const VALUE = 'value';
@@ -18,7 +20,7 @@ const RIGHT = 39;
 
 @autobind
 class Editor extends PureComponent {
-  constructor (props) {
+  constructor(props) {
     super(props);
 
     this._focusedPairId = null;
@@ -38,14 +40,14 @@ class Editor extends PureComponent {
     };
   }
 
-  _setRowRef (n) {
+  _setRowRef(n) {
     // NOTE: We're not handling unmounting (may lead to a bug)
     if (n) {
       this._rows[n.props.pair.id] = n;
     }
   }
 
-  _handlePairChange (pair) {
+  _handlePairChange(pair) {
     const i = this._getPairIndex(pair);
     const pairs = [
       ...this.state.pairs.slice(0, i),
@@ -56,7 +58,11 @@ class Editor extends PureComponent {
     this._onChange(pairs);
   }
 
-  _handleMove (pairToMove, pairToTarget, targetOffset) {
+  _handleDeleteAll() {
+    this._onChange([]);
+  }
+
+  _handleMove(pairToMove, pairToTarget, targetOffset) {
     if (pairToMove.id === pairToTarget.id) {
       // Nothing to do
       return;
@@ -79,43 +85,43 @@ class Editor extends PureComponent {
     this._onChange(pairs);
   }
 
-  _handlePairDelete (pair) {
+  _handlePairDelete(pair) {
     const i = this.state.pairs.findIndex(p => p.id === pair.id);
     this._deletePair(i, true);
   }
 
-  _handleBlurName () {
+  _handleBlurName() {
     this._focusedField = null;
   }
 
-  _handleBlurValue () {
+  _handleBlurValue() {
     this._focusedField = null;
   }
 
-  _handleFocusName (pair) {
+  _handleFocusName(pair) {
     this._setFocusedPair(pair);
     this._focusedField = NAME;
     this._rows[pair.id].focusNameEnd();
   }
 
-  _handleFocusValue (pair) {
+  _handleFocusValue(pair) {
     this._setFocusedPair(pair);
     this._focusedField = VALUE;
     this._rows[pair.id].focusValueEnd();
   }
 
-  _handleAddFromName () {
+  _handleAddFromName() {
     this._focusedField = NAME;
     this._addPair();
   }
 
   // Sometimes multiple focus events come in, so lets debounce it
-  _handleAddFromValue () {
+  _handleAddFromValue() {
     this._focusedField = VALUE;
     this._addPair();
   }
 
-  _handleKeyDown (pair, e, value) {
+  _handleKeyDown(pair, e, value) {
     if (e.metaKey || e.ctrlKey) {
       return;
     }
@@ -139,15 +145,18 @@ class Editor extends PureComponent {
     }
   }
 
-  _onChange (pairs) {
-    clearTimeout(this._triggerTimeout);
-    this._triggerTimeout = setTimeout(() => this.props.onChange(pairs), DEBOUNCE_MILLIS);
-    this.setState({pairs});
+  _onChange(pairs) {
+    this.setState({ pairs }, () => {
+      clearTimeout(this._triggerTimeout);
+      this._triggerTimeout = setTimeout(() => {
+        this.props.onChange(pairs);
+      }, DEBOUNCE_MILLIS);
+    });
   }
 
-  _addPair (position) {
+  _addPair(position) {
     const numPairs = this.state.pairs.length;
-    const {maxPairs} = this.props;
+    const { maxPairs } = this.props;
 
     // Don't add any more pairs
     if (maxPairs !== undefined && numPairs >= maxPairs) {
@@ -178,7 +187,7 @@ class Editor extends PureComponent {
     this.props.onCreate && this.props.onCreate();
   }
 
-  _deletePair (position, breakFocus = false) {
+  _deletePair(position, breakFocus = false) {
     if (this.props.disableDelete) {
       return;
     }
@@ -201,7 +210,7 @@ class Editor extends PureComponent {
     this._onChange(pairs);
   }
 
-  _focusNext (addIfValue = false) {
+  _focusNext(addIfValue = false) {
     if (this.props.maxPairs === 1) {
       return;
     }
@@ -219,7 +228,7 @@ class Editor extends PureComponent {
     }
   }
 
-  _focusPrevious (deleteIfEmpty = false) {
+  _focusPrevious(deleteIfEmpty = false) {
     if (this._focusedField === VALUE) {
       this._focusedField = NAME;
       this._updateFocus();
@@ -237,7 +246,7 @@ class Editor extends PureComponent {
     }
   }
 
-  _focusNextPair () {
+  _focusNextPair() {
     if (this.props.maxPairs === 1) {
       return;
     }
@@ -258,7 +267,7 @@ class Editor extends PureComponent {
     }
   }
 
-  _focusPreviousPair () {
+  _focusPreviousPair() {
     if (this.props.maxPairs === 1) {
       return;
     }
@@ -270,7 +279,7 @@ class Editor extends PureComponent {
     }
   }
 
-  _updateFocus () {
+  _updateFocus() {
     const pair = this._getFocusedPair();
     const id = pair ? pair.id : 'n/a';
     const row = this._rows[id];
@@ -286,7 +295,7 @@ class Editor extends PureComponent {
     }
   }
 
-  _getPairIndex (pair) {
+  _getPairIndex(pair) {
     if (pair) {
       return this.state.pairs.findIndex(p => p.id === pair.id);
     } else {
@@ -294,15 +303,15 @@ class Editor extends PureComponent {
     }
   }
 
-  _getFocusedPairIndex () {
+  _getFocusedPairIndex() {
     return this._getPairIndex(this._getFocusedPair());
   }
 
-  _getFocusedPair () {
+  _getFocusedPair() {
     return this.state.pairs.find(p => p.id === this._focusedPairId) || null;
   }
 
-  _setFocusedPair (pair) {
+  _setFocusedPair(pair) {
     if (pair) {
       this._focusedPairId = pair.id;
     } else {
@@ -310,11 +319,11 @@ class Editor extends PureComponent {
     }
   }
 
-  componentDidUpdate () {
+  componentDidUpdate() {
     this._updateFocus();
   }
 
-  render () {
+  render() {
     const {
       maxPairs,
       className,
@@ -332,7 +341,7 @@ class Editor extends PureComponent {
       disableDelete
     } = this.props;
 
-    const {pairs} = this.state;
+    const { pairs } = this.state;
 
     const classes = classnames('key-value-editor', 'wide', className);
     return (
@@ -359,16 +368,20 @@ class Editor extends PureComponent {
               nunjucksPowerUserMode={nunjucksPowerUserMode}
               handleRender={handleRender}
               handleGetRenderContext={handleGetRenderContext}
-              handleGetAutocompleteNameConstants={handleGetAutocompleteNameConstants}
-              handleGetAutocompleteValueConstants={handleGetAutocompleteValueConstants}
+              handleGetAutocompleteNameConstants={
+                handleGetAutocompleteNameConstants
+              }
+              handleGetAutocompleteValueConstants={
+                handleGetAutocompleteValueConstants
+              }
               allowMultiline={allowMultiline}
               allowFile={allowFile}
               pair={pair}
             />
           ))}
 
-          {!maxPairs || pairs.length < maxPairs
-            ? <KeyValueEditorRow
+          {!maxPairs || pairs.length < maxPairs ? (
+            <KeyValueEditorRow
               key="empty-row"
               hideButtons
               sortable
@@ -378,6 +391,18 @@ class Editor extends PureComponent {
               index={-1}
               onChange={nullFn}
               onDelete={nullFn}
+              renderLeftIcon={() => (
+                <Dropdown>
+                  <DropdownButton>
+                    <i className="fa fa-cog" />
+                  </DropdownButton>
+                  <DropdownItem
+                    onClick={this._handleDeleteAll}
+                    buttonClass={PromptButton}>
+                    Delete All Items
+                  </DropdownItem>
+                </Dropdown>
+              )}
               className="key-value-editor__row-wrapper--clicker"
               namePlaceholder={`New ${namePlaceholder}`}
               valuePlaceholder={`New ${valuePlaceholder}`}
@@ -385,9 +410,9 @@ class Editor extends PureComponent {
               onFocusValue={this._handleAddFromValue}
               allowMultiline={allowMultiline}
               allowFile={allowFile}
-              pair={{name: '', value: ''}}
-            /> : null
-          }
+              pair={{ name: '', value: '' }}
+            />
+          ) : null}
         </ul>
       </Lazy>
     );

@@ -1,10 +1,9 @@
 import srp from 'srp-js';
 import * as crypt from './crypt';
 import * as util from '../common/fetch';
-import {trackEvent} from '../common/analytics';
 
 /** Create a new session for the user */
-export async function login (rawEmail, rawPassphrase) {
+export async function login(rawEmail, rawPassphrase) {
   // ~~~~~~~~~~~~~~~ //
   // Sanitize Inputs //
   // ~~~~~~~~~~~~~~~ //
@@ -16,7 +15,7 @@ export async function login (rawEmail, rawPassphrase) {
   // Fetch Salt and Submit A To Server //
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 
-  const {saltKey, saltAuth} = await util.post('/auth/login-s', {email});
+  const { saltKey, saltAuth } = await util.post('/auth/login-s', { email });
   const authSecret = await crypt.deriveKey(passphrase, email, saltKey);
   const secret1 = await crypt.srpGenKey();
   const c = new srp.Client(
@@ -27,7 +26,10 @@ export async function login (rawEmail, rawPassphrase) {
     Buffer.from(secret1, 'hex')
   );
   const srpA = c.computeA().toString('hex');
-  const {sessionStarterId, srpB} = await util.post('/auth/login-a', {srpA, email});
+  const { sessionStarterId, srpB } = await util.post('/auth/login-a', {
+    srpA,
+    email
+  });
 
   // ~~~~~~~~~~~~~~~~~~~~~ //
   // Compute and Submit M1 //
@@ -35,7 +37,10 @@ export async function login (rawEmail, rawPassphrase) {
 
   c.setB(Buffer.from(srpB, 'hex'));
   const srpM1 = c.computeM1().toString('hex');
-  const {srpM2} = await util.post('/auth/login-m1', {srpM1, sessionStarterId});
+  const { srpM2 } = await util.post('/auth/login-m1', {
+    srpM1,
+    sessionStarterId
+  });
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~ //
   // Verify Server Identity M2 //
@@ -62,7 +67,10 @@ export async function login (rawEmail, rawPassphrase) {
   } = await whoami(sessionId);
 
   const derivedSymmetricKey = await crypt.deriveKey(passphrase, email, saltEnc);
-  const symmetricKeyStr = await crypt.decryptAES(derivedSymmetricKey, JSON.parse(encSymmetricKey));
+  const symmetricKeyStr = await crypt.decryptAES(
+    derivedSymmetricKey,
+    JSON.parse(encSymmetricKey)
+  );
 
   // Store the information for later
   setSessionData(
@@ -75,46 +83,54 @@ export async function login (rawEmail, rawPassphrase) {
     JSON.parse(publicKey),
     JSON.parse(encPrivateKey)
   );
-
-  // Set the ID for Google Analytics
-  trackEvent('Session', 'Login');
 }
 
-export function syncCreateResourceGroup (parentResourceId, name, encSymmetricKey) {
-  return util.post('/api/resource_groups', {parentResourceId, name, encSymmetricKey});
+export function syncCreateResourceGroup(
+  parentResourceId,
+  name,
+  encSymmetricKey
+) {
+  return util.post('/api/resource_groups', {
+    parentResourceId,
+    name,
+    encSymmetricKey
+  });
 }
 
-export function syncGetResourceGroup (id) {
+export function syncGetResourceGroup(id) {
   return util.get(`/api/resource_groups/${id}`);
 }
 
-export function syncPull (body) {
+export function syncPull(body) {
   return util.post('/sync/pull', body);
 }
 
-export function syncPush (body) {
+export function syncPush(body) {
   return util.post('/sync/push', body);
 }
 
-export function syncResetData () {
+export function syncResetData() {
   return util.post('/auth/reset');
 }
 
-export function syncFixDupes (resourceGroupIds) {
-  return util.post('/sync/fix-dupes', {ids: resourceGroupIds});
+export function syncFixDupes(resourceGroupIds) {
+  return util.post('/sync/fix-dupes', { ids: resourceGroupIds });
 }
 
-export function unshareWithAllTeams (resourceGroupId) {
+export function unshareWithAllTeams(resourceGroupId) {
   return util.put(`/api/resource_groups/${resourceGroupId}/unshare`);
 }
 
-export async function shareWithTeam (resourceGroupId, teamId, rawPassphrase) {
+export async function shareWithTeam(resourceGroupId, teamId, rawPassphrase) {
   // Ask the server what we need to do to invite the member
-  const instructions = await util.post(`/api/resource_groups/${resourceGroupId}/share-a`, {teamId});
+  const instructions = await util.post(
+    `/api/resource_groups/${resourceGroupId}/share-a`,
+    { teamId }
+  );
 
   // Compute keys necessary to invite the member
   const passPhrase = _sanitizePassphrase(rawPassphrase);
-  const {email, saltEnc, encPrivateKey, encSymmetricKey} = await whoami();
+  const { email, saltEnc, encPrivateKey, encSymmetricKey } = await whoami();
   const secret = await crypt.deriveKey(passPhrase, email, saltEnc);
   let symmetricKey;
   try {
@@ -122,7 +138,10 @@ export async function shareWithTeam (resourceGroupId, teamId, rawPassphrase) {
   } catch (err) {
     throw new Error('Invalid password');
   }
-  const privateKey = crypt.decryptAES(JSON.parse(symmetricKey), JSON.parse(encPrivateKey));
+  const privateKey = crypt.decryptAES(
+    JSON.parse(symmetricKey),
+    JSON.parse(encPrivateKey)
+  );
   const privateKeyJWK = JSON.parse(privateKey);
   const resourceGroupSymmetricKey = crypt.decryptRSAWithJWK(
     privateKeyJWK,
@@ -140,20 +159,23 @@ export async function shareWithTeam (resourceGroupId, teamId, rawPassphrase) {
   }
 
   // Actually share it with the team
-  await util.post(`/api/resource_groups/${resourceGroupId}/share-b`, {teamId, keys: newKeys});
+  await util.post(`/api/resource_groups/${resourceGroupId}/share-b`, {
+    teamId,
+    keys: newKeys
+  });
 }
 
-export function getPublicKey () {
+export function getPublicKey() {
   return getSessionData().publicKey;
 }
 
-export function getPrivateKey () {
-  const {symmetricKey, encPrivateKey} = getSessionData();
+export function getPrivateKey() {
+  const { symmetricKey, encPrivateKey } = getSessionData();
   const privateKeyStr = crypt.decryptAES(symmetricKey, encPrivateKey);
   return JSON.parse(privateKeyStr);
 }
 
-export function getCurrentSessionId () {
+export function getCurrentSessionId() {
   if (window) {
     return window.localStorage.getItem('currentSessionId');
   } else {
@@ -161,20 +183,20 @@ export function getCurrentSessionId () {
   }
 }
 
-export function getAccountId () {
+export function getAccountId() {
   return getSessionData().accountId;
 }
 
-export function getEmail () {
+export function getEmail() {
   return getSessionData().email;
 }
 
-export function getFirstName () {
+export function getFirstName() {
   return getSessionData().firstName;
 }
 
-export function getFullName () {
-  const {firstName, lastName} = getSessionData();
+export function getFullName() {
+  const { firstName, lastName } = getSessionData();
   return `${firstName || ''} ${lastName || ''}`.trim();
 }
 
@@ -182,7 +204,7 @@ export function getFullName () {
  * get Data about the current session
  * @returns Object
  */
-export function getSessionData () {
+export function getSessionData() {
   const sessionId = getCurrentSessionId();
   if (!sessionId || !window) {
     return {};
@@ -193,14 +215,16 @@ export function getSessionData () {
 }
 
 /** Set data for the new session and store it encrypted with the sessionId */
-export function setSessionData (sessionId,
-                                accountId,
-                                firstName,
-                                lastName,
-                                email,
-                                symmetricKey,
-                                publicKey,
-                                encPrivateKey) {
+export function setSessionData(
+  sessionId,
+  accountId,
+  firstName,
+  lastName,
+  email,
+  symmetricKey,
+  publicKey,
+  encPrivateKey
+) {
   const dataStr = JSON.stringify({
     id: sessionId,
     accountId: accountId,
@@ -219,19 +243,19 @@ export function setSessionData (sessionId,
 }
 
 /** Unset the session data (log out) */
-export function unsetSessionData () {
+export function unsetSessionData() {
   const sessionId = getCurrentSessionId();
   window.localStorage.removeItem(getSessionKey(sessionId));
   window.localStorage.removeItem(`currentSessionId`);
 }
 
 /** Check if we (think) we have a session */
-export function isLoggedIn () {
+export function isLoggedIn() {
   return getCurrentSessionId();
 }
 
 /** Log out and delete session data */
-export async function logout () {
+export async function logout() {
   try {
     await util.post('/auth/logout');
   } catch (e) {
@@ -241,23 +265,21 @@ export async function logout () {
   }
 
   unsetSessionData();
-  trackEvent('Session', 'Logout');
 }
 
-export async function listTeams () {
+export async function listTeams() {
   return util.get('/api/teams');
 }
 
-export async function endTrial () {
+export async function endTrial() {
   await util.put('/api/billing/end-trial');
-  trackEvent('Session', 'End Trial');
 }
 
-export function whoami (sessionId = null) {
+export function whoami(sessionId = null) {
   return util.get('/auth/whoami', sessionId);
 }
 
-export function getSessionKey (sessionId) {
+export function getSessionKey(sessionId) {
   return `session__${(sessionId || '').slice(0, 10)}`;
 }
 
@@ -265,14 +287,14 @@ export function getSessionKey (sessionId) {
 // Helper Functions //
 // ~~~~~~~~~~~~~~~~ //
 
-function _getSrpParams () {
+function _getSrpParams() {
   return srp.params[2048];
 }
 
-function _sanitizeEmail (email) {
+function _sanitizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
-function _sanitizePassphrase (passphrase) {
+function _sanitizePassphrase(passphrase) {
   return passphrase.trim().normalize('NFKD');
 }

@@ -4,13 +4,26 @@ import getAccessTokenClientCredentials from './grant-client-credentials';
 import getAccessTokenPassword from './grant-password';
 import getAccessTokenImplicit from './grant-implicit';
 import refreshAccessToken from './refresh-token';
-import {GRANT_TYPE_AUTHORIZATION_CODE, GRANT_TYPE_CLIENT_CREDENTIALS, GRANT_TYPE_IMPLICIT, GRANT_TYPE_PASSWORD, P_ACCESS_TOKEN, P_ERROR, P_ERROR_DESCRIPTION, P_ERROR_URI, P_EXPIRES_IN, P_REFRESH_TOKEN} from './constants';
+import {
+  GRANT_TYPE_AUTHORIZATION_CODE,
+  GRANT_TYPE_CLIENT_CREDENTIALS,
+  GRANT_TYPE_IMPLICIT,
+  GRANT_TYPE_PASSWORD,
+  P_ACCESS_TOKEN,
+  P_ERROR_DESCRIPTION,
+  P_ERROR_URI,
+  P_ERROR,
+  P_EXPIRES_IN,
+  P_REFRESH_TOKEN,
+  X_RESPONSE_ID,
+  X_ERROR
+} from './constants';
 import * as models from '../../models';
-import type {RequestAuthentication} from '../../models/request';
-import type {OAuth2Token} from '../../models/o-auth-2-token';
+import type { RequestAuthentication } from '../../models/request';
+import type { OAuth2Token } from '../../models/o-auth-2-token';
 
 /** Get an OAuth2Token object and also handle storing/saving/refreshing */
-export default async function (
+export default async function(
   requestId: string,
   authentication: RequestAuthentication,
   forceRefresh: boolean = false
@@ -29,7 +42,7 @@ export default async function (
   return null;
 }
 
-async function _getOAuth2AuthorizationCodeHeader (
+async function _getOAuth2AuthorizationCodeHeader(
   requestId: string,
   authentication: RequestAuthentication,
   forceRefresh: boolean
@@ -55,7 +68,7 @@ async function _getOAuth2AuthorizationCodeHeader (
   return _updateOAuth2Token(requestId, results);
 }
 
-async function _getOAuth2ClientCredentialsHeader (
+async function _getOAuth2ClientCredentialsHeader(
   requestId: string,
   authentication: RequestAuthentication,
   forceRefresh: boolean
@@ -72,13 +85,15 @@ async function _getOAuth2ClientCredentialsHeader (
     authentication.credentialsInBody,
     authentication.clientId,
     authentication.clientSecret,
-    authentication.scope
+    authentication.scope,
+    authentication.audience,
+    authentication.resource
   );
 
   return _updateOAuth2Token(requestId, results);
 }
 
-async function _getOAuth2ImplicitHeader (
+async function _getOAuth2ImplicitHeader(
   requestId: string,
   authentication: RequestAuthentication,
   forceRefresh: boolean
@@ -93,15 +108,17 @@ async function _getOAuth2ImplicitHeader (
     requestId,
     authentication.authorizationUrl,
     authentication.clientId,
+    authentication.responseType,
     authentication.redirectUrl,
     authentication.scope,
-    authentication.state
+    authentication.state,
+    authentication.audience
   );
 
   return _updateOAuth2Token(requestId, results);
 }
 
-async function _getOAuth2PasswordHeader (
+async function _getOAuth2PasswordHeader(
   requestId: string,
   authentication: RequestAuthentication,
   forceRefresh: boolean
@@ -126,7 +143,7 @@ async function _getOAuth2PasswordHeader (
   return _updateOAuth2Token(requestId, results);
 }
 
-async function _getAccessToken (
+async function _getAccessToken(
   requestId: string,
   authentication: RequestAuthentication,
   forceRefresh: boolean
@@ -180,12 +197,12 @@ async function _getAccessToken (
   return _updateOAuth2Token(requestId, refreshResults);
 }
 
-async function _updateOAuth2Token (requestId: string, authResults: Object): Promise<OAuth2Token> {
+async function _updateOAuth2Token(requestId: string, authResults: Object): Promise<OAuth2Token> {
   const oAuth2Token = await models.oAuth2Token.getOrCreateByParentId(requestId);
 
   // Calculate expiry date
   const expiresIn = authResults[P_EXPIRES_IN];
-  const expiresAt = expiresIn ? (Date.now() + (expiresIn * 1000)) : null;
+  const expiresAt = expiresIn ? Date.now() + expiresIn * 1000 : null;
 
   return models.oAuth2Token.update(oAuth2Token, {
     expiresAt,
@@ -193,6 +210,10 @@ async function _updateOAuth2Token (requestId: string, authResults: Object): Prom
     accessToken: authResults[P_ACCESS_TOKEN] || null,
     error: authResults[P_ERROR] || null,
     errorDescription: authResults[P_ERROR_DESCRIPTION] || null,
-    errorUri: authResults[P_ERROR_URI] || null
+    errorUri: authResults[P_ERROR_URI] || null,
+
+    // Special Cases
+    xResponseId: authResults[X_RESPONSE_ID] || null,
+    xError: authResults[X_ERROR] || null
   });
 }

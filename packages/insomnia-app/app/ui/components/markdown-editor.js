@@ -1,50 +1,39 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import classnames from 'classnames';
-import {Tab, TabList, TabPanel, Tabs} from 'react-tabs';
-import {trackEvent} from '../../common/analytics';
+import { Tab, TabList, TabPanel, Tabs } from 'react-tabs';
 import Button from './base/button';
 import CodeEditor from './codemirror/code-editor';
 import MarkdownPreview from './markdown-preview';
 
 @autobind
 class MarkdownEditor extends PureComponent {
-  constructor (props) {
+  constructor(props) {
     super(props);
     this.state = {
       markdown: props.defaultValue
     };
   }
 
-  _trackTab (name) {
-    trackEvent('Request', 'Markdown Editor Tab', name);
-  }
-
-  _handleChange (markdown) {
+  _handleChange(markdown) {
     this.props.onChange(markdown);
-    this.setState({markdown});
-
-    // So we don't track on every keystroke, give analytics a longer timeout
-    clearTimeout(this._analyticsTimeout);
-    this._analyticsTimeout = setTimeout(() => {
-      trackEvent('Request', 'Edit Description');
-    }, 2000);
+    this.setState({ markdown });
   }
 
-  _setEditorRef (n) {
+  _setEditorRef(n) {
     this._editor = n;
   }
 
-  focusEnd () {
+  focusEnd() {
     this._editor && this._editor.focusEnd();
   }
 
-  focus () {
+  focus() {
     this._editor && this._editor.focus();
   }
 
-  render () {
+  render() {
     const {
       fontSize,
       lineWrapping,
@@ -60,28 +49,24 @@ class MarkdownEditor extends PureComponent {
       nunjucksPowerUserMode
     } = this.props;
 
-    const {markdown} = this.state;
+    const { markdown } = this.state;
 
     const classes = classnames(
       'react-tabs',
       'markdown-editor',
       'outlined',
       className,
-      {'markdown-editor--dynamic-height': !tall}
+      { 'markdown-editor--dynamic-height': !tall }
     );
 
     return (
       <Tabs className={classes} defaultIndex={defaultPreviewMode ? 1 : 0}>
         <TabList>
           <Tab>
-            <Button onClick={this._trackTab} value="Write">
-              Write
-            </Button>
+            <Button value="Write">Write</Button>
           </Tab>
           <Tab>
-            <Button onClick={this._trackTab} value="Preview">
-              Preview
-            </Button>
+            <Button value="Preview">Preview</Button>
           </Tab>
         </TabList>
         <TabPanel className="react-tabs__tab-panel markdown-editor__edit">
@@ -112,10 +97,7 @@ class MarkdownEditor extends PureComponent {
           </div>
         </TabPanel>
         <TabPanel className="react-tabs__tab-panel markdown-editor__preview">
-          <MarkdownPreview
-            markdown={markdown}
-            handleRender={handleRender}
-          />
+          <MarkdownPreview markdown={markdown} handleRender={handleRender} />
         </TabPanel>
       </Tabs>
     );

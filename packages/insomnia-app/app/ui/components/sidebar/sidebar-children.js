@@ -3,14 +3,15 @@ import * as React from 'react';
 import SidebarRequestRow from './sidebar-request-row';
 import SidebarRequestGroupRow from './sidebar-request-group-row';
 import * as models from '../../../models/index';
-import type {RequestGroup} from '../../../models/request-group';
-import type {Workspace} from '../../../models/workspace';
-import type {Request} from '../../../models/request';
+import type { RequestGroup } from '../../../models/request-group';
+import type { Workspace } from '../../../models/workspace';
+import type { Request } from '../../../models/request';
 
 type Child = {
   doc: Request | RequestGroup,
   children: Array<Child>,
-  collapsed: boolean
+  collapsed: boolean,
+  hidden: boolean
 };
 
 type Props = {
@@ -21,24 +22,28 @@ type Props = {
   handleSetRequestGroupCollapsed: Function,
   handleDuplicateRequest: Function,
   handleDuplicateRequestGroup: Function,
+  handleMoveRequestGroup: Function,
   handleGenerateCode: Function,
   handleCopyAsCurl: Function,
   moveDoc: Function,
   childObjects: Array<Child>,
   workspace: Workspace,
+  filter: string,
 
   // Optional
   activeRequest?: Request
 };
 
 class SidebarChildren extends React.PureComponent<Props> {
-  _renderChildren (children: Array<Child>) {
+  _renderChildren(children: Array<Child>) {
     const {
+      filter,
       handleCreateRequest,
       handleCreateRequestGroup,
       handleSetRequestGroupCollapsed,
       handleDuplicateRequest,
       handleDuplicateRequestGroup,
+      handleMoveRequestGroup,
       handleGenerateCode,
       handleCopyAsCurl,
       moveDoc,
@@ -58,6 +63,7 @@ class SidebarChildren extends React.PureComponent<Props> {
         return (
           <SidebarRequestRow
             key={child.doc._id}
+            filter={filter || ''}
             moveDoc={moveDoc}
             handleActivateRequest={handleActivateRequest}
             handleDuplicateRequest={handleDuplicateRequest}
@@ -75,7 +81,7 @@ class SidebarChildren extends React.PureComponent<Props> {
 
       const requestGroup = child.doc;
 
-      function hasActiveChild (children) {
+      function hasActiveChild(children) {
         for (const c of children) {
           if (hasActiveChild(c.children || [])) {
             return true;
@@ -93,12 +99,14 @@ class SidebarChildren extends React.PureComponent<Props> {
 
       return (
         <SidebarRequestGroupRow
-          handleActivateRequest={handleActivateRequest}
           key={requestGroup._id}
+          filter={filter || ''}
           isActive={isActive}
           moveDoc={moveDoc}
+          handleActivateRequest={handleActivateRequest}
           handleSetRequestGroupCollapsed={handleSetRequestGroupCollapsed}
           handleDuplicateRequestGroup={handleDuplicateRequestGroup}
+          handleMoveRequestGroup={handleMoveRequestGroup}
           isCollapsed={child.collapsed}
           handleCreateRequest={handleCreateRequest}
           handleCreateRequestGroup={handleCreateRequestGroup}
@@ -111,11 +119,11 @@ class SidebarChildren extends React.PureComponent<Props> {
     });
   }
 
-  render () {
-    const {childObjects} = this.props;
+  render() {
+    const { childObjects } = this.props;
 
     return (
-      <ul className="sidebar__list sidebar__list-root">
+      <ul className="sidebar__list sidebar__list-root theme--sidebar__list">
         {this._renderChildren(childObjects)}
       </ul>
     );

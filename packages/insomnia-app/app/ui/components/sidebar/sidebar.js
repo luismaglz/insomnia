@@ -1,4 +1,4 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import classnames from 'classnames';
@@ -7,26 +7,29 @@ import SidebarFilter from './sidebar-filter';
 import SidebarChildren from './sidebar-children';
 import SyncButton from '../dropdowns/sync-dropdown';
 import WorkspaceDropdown from '../dropdowns/workspace-dropdown';
-import {SIDEBAR_SKINNY_REMS, COLLAPSE_SIDEBAR_REMS} from '../../../common/constants';
+import {
+  SIDEBAR_SKINNY_REMS,
+  COLLAPSE_SIDEBAR_REMS
+} from '../../../common/constants';
 
 @autobind
 class Sidebar extends PureComponent {
-  _handleChangeEnvironment (id) {
-    const {handleSetActiveEnvironment} = this.props;
+  _handleChangeEnvironment(id) {
+    const { handleSetActiveEnvironment } = this.props;
     handleSetActiveEnvironment(id);
   }
 
-  _handleCreateRequestInWorkspace () {
-    const {workspace, handleCreateRequest} = this.props;
+  _handleCreateRequestInWorkspace() {
+    const { workspace, handleCreateRequest } = this.props;
     handleCreateRequest(workspace._id);
   }
 
-  _handleCreateRequestGroupInWorkspace () {
-    const {workspace, handleCreateRequestGroup} = this.props;
+  _handleCreateRequestGroupInWorkspace() {
+    const { workspace, handleCreateRequestGroup } = this.props;
     handleCreateRequestGroup(workspace._id);
   }
 
-  render () {
+  render() {
     const {
       showCookiesModal,
       filter,
@@ -46,23 +49,34 @@ class Sidebar extends PureComponent {
       handleCreateRequest,
       handleDuplicateRequest,
       handleDuplicateRequestGroup,
+      handleMoveRequestGroup,
       handleGenerateCode,
       handleCopyAsCurl,
       handleCreateRequestGroup,
       handleSetRequestGroupCollapsed,
       moveDoc,
       handleActivateRequest,
-      activeRequest
+      activeRequest,
+      environmentHighlightColorStyle
     } = this.props;
 
     return (
-      <aside className={classnames('sidebar', {
-        'sidebar--hidden': hidden,
-        'sidebar--skinny': width < SIDEBAR_SKINNY_REMS,
-        'sidebar--collapsed': width < COLLAPSE_SIDEBAR_REMS
-      })}>
+      <aside
+        className={classnames('sidebar', 'theme--sidebar', {
+          'sidebar--hidden': hidden,
+          'sidebar--skinny': width < SIDEBAR_SKINNY_REMS,
+          'sidebar--collapsed': width < COLLAPSE_SIDEBAR_REMS
+        })}
+        style={{
+          borderRight:
+            activeEnvironment &&
+            activeEnvironment.color &&
+            environmentHighlightColorStyle === 'sidebar-edge'
+              ? '5px solid ' + activeEnvironment.color
+              : null
+        }}>
         <WorkspaceDropdown
-          className="sidebar__header"
+          className="sidebar__header theme--sidebar__header"
           activeWorkspace={workspace}
           workspaces={workspaces}
           unseenWorkspaces={unseenWorkspaces}
@@ -78,6 +92,7 @@ class Sidebar extends PureComponent {
             activeEnvironment={activeEnvironment}
             environments={environments}
             workspace={workspace}
+            environmentHighlightColorStyle={environmentHighlightColorStyle}
           />
           <button className="btn btn--super-compact" onClick={showCookiesModal}>
             <div className="sidebar__menu__thing">
@@ -87,6 +102,7 @@ class Sidebar extends PureComponent {
         </div>
 
         <SidebarFilter
+          key={`${workspace._id}::filter`}
           onChange={handleChangeFilter}
           requestCreate={this._handleCreateRequestInWorkspace}
           requestGroupCreate={this._handleCreateRequestGroupInWorkspace}
@@ -101,11 +117,13 @@ class Sidebar extends PureComponent {
           handleSetRequestGroupCollapsed={handleSetRequestGroupCollapsed}
           handleDuplicateRequest={handleDuplicateRequest}
           handleDuplicateRequestGroup={handleDuplicateRequestGroup}
+          handleMoveRequestGroup={handleMoveRequestGroup}
           handleGenerateCode={handleGenerateCode}
           handleCopyAsCurl={handleCopyAsCurl}
           moveDoc={moveDoc}
           workspace={workspace}
           activeRequest={activeRequest}
+          filter={filter || ''}
         />
 
         <SyncButton
@@ -132,6 +150,7 @@ Sidebar.propTypes = {
   handleCreateRequestGroup: PropTypes.func.isRequired,
   handleDuplicateRequest: PropTypes.func.isRequired,
   handleDuplicateRequestGroup: PropTypes.func.isRequired,
+  handleMoveRequestGroup: PropTypes.func.isRequired,
   handleGenerateCode: PropTypes.func.isRequired,
   handleCopyAsCurl: PropTypes.func.isRequired,
   showEnvironmentsModal: PropTypes.func.isRequired,
@@ -146,6 +165,7 @@ Sidebar.propTypes = {
   workspaces: PropTypes.arrayOf(PropTypes.object).isRequired,
   unseenWorkspaces: PropTypes.arrayOf(PropTypes.object).isRequired,
   environments: PropTypes.arrayOf(PropTypes.object).isRequired,
+  environmentHighlightColorStyle: PropTypes.string.isRequired,
 
   // Optional
   filter: PropTypes.string,

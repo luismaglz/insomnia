@@ -1,38 +1,33 @@
 import * as plugin from '../response';
-import {globalBeforeEach} from '../../../__jest__/before-each';
-import {getTempDir} from '../../../common/constants';
+import { globalBeforeEach } from '../../../__jest__/before-each';
+import { getTempDir } from '../../../common/constants';
 import fs from 'fs';
 import path from 'path';
 import * as models from '../../../models/index';
 
-const PLUGIN = {
-  name: 'my-plugin',
-  version: '1.0.0',
-  directory: '/plugins/my-plugin',
-  module: {}
-};
-
 describe('init()', () => {
   beforeEach(globalBeforeEach);
   it('initializes correctly', async () => {
-    const result = plugin.init(PLUGIN, {});
+    const result = plugin.init({});
     expect(Object.keys(result)).toEqual(['response']);
-    expect(Object.keys(result.response)).toEqual([
+    expect(Object.keys(result.response).sort()).toEqual([
+      'getBody',
+      'getBodyStream',
+      'getBytesRead',
+      'getHeader',
       'getRequestId',
       'getStatusCode',
       'getStatusMessage',
-      'getBytesRead',
       'getTime',
-      'getBody',
-      'getBodyStream',
-      'getHeader',
-      'hasHeader'
+      'hasHeader',
+      'setBody'
     ]);
   });
 
   it('fails to initialize without response', () => {
-    expect(() => plugin.init(PLUGIN))
-      .toThrowError('contexts.response initialized without response');
+    expect(() => plugin.init()).toThrowError(
+      'contexts.response initialized without response'
+    );
   });
 });
 
@@ -51,7 +46,7 @@ describe('response.*', () => {
       bytesRead: 123,
       elapsedTime: 321
     });
-    const result = plugin.init(PLUGIN, response);
+    const result = plugin.init(response);
     expect(result.response.getRequestId()).toBe('req_1');
     expect(result.response.getStatusCode()).toBe(200);
     expect(result.response.getBytesRead()).toBe(123);
@@ -60,7 +55,7 @@ describe('response.*', () => {
   });
 
   it('works for basic and empty response', async () => {
-    const result = plugin.init(PLUGIN, {});
+    const result = plugin.init({});
     expect(result.response.getRequestId()).toBe('');
     expect(result.response.getStatusCode()).toBe(0);
     expect(result.response.getBytesRead()).toBe(0);
@@ -71,15 +66,18 @@ describe('response.*', () => {
   it('works for getting headers', () => {
     const response = {
       headers: [
-        {name: 'content-type', value: 'application/json'},
-        {name: 'set-cookie', value: 'foo=bar'},
-        {name: 'set-cookie', value: 'baz=qux'}
+        { name: 'content-type', value: 'application/json' },
+        { name: 'set-cookie', value: 'foo=bar' },
+        { name: 'set-cookie', value: 'baz=qux' }
       ]
     };
-    const result = plugin.init(PLUGIN, response);
+    const result = plugin.init(response);
     expect(result.response.getHeader('Does-Not-Exist')).toBeNull();
     expect(result.response.getHeader('CONTENT-TYPE')).toBe('application/json');
-    expect(result.response.getHeader('set-cookie')).toEqual(['foo=bar', 'baz=qux']);
+    expect(result.response.getHeader('set-cookie')).toEqual([
+      'foo=bar',
+      'baz=qux'
+    ]);
     expect(result.response.hasHeader('foo')).toBe(false);
     expect(result.response.hasHeader('ConTent-Type')).toBe(true);
   });

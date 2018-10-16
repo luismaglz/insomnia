@@ -5,18 +5,19 @@ import * as session from './session';
 import * as store from './storage';
 import * as misc from '../common/misc';
 import Logger from './logger';
-import {trackEvent} from '../common/analytics';
 import * as zlib from 'zlib';
 
-export const START_DELAY = 1E3;
-export const PULL_PERIOD = 15E3;
-export const WRITE_PERIOD = 1E3;
+export const START_DELAY = 1e3;
+export const PULL_PERIOD = 15e3;
+export const WRITE_PERIOD = 1e3;
 
 const WHITE_LIST = {
   [models.workspace.type]: true,
   [models.request.type]: true,
   [models.requestGroup.type]: true,
   [models.environment.type]: true,
+
+  // These can be overridden in sync config
   [models.cookieJar.type]: true,
   [models.clientCertificate.type]: true
 };
@@ -31,7 +32,7 @@ let _writeChangesInterval = null;
 let _pendingDBChanges = {};
 let _isInitialized = false;
 
-export async function init () {
+export async function init() {
   if (_isInitialized) {
     logger.debug('Already enabled');
     return;
@@ -42,7 +43,7 @@ export async function init () {
   db.onChange(async changes => {
     // To help prevent bugs, put Workspaces first
     const sortedChanges = changes.sort(
-      ([event, doc, fromSync]) => doc.type === models.workspace.type ? 1 : -1
+      ([event, doc, fromSync]) => (doc.type === models.workspace.type ? 1 : -1)
     );
 
     for (const [event, doc, fromSync] of sortedChanges) {
@@ -109,7 +110,7 @@ export async function init () {
 }
 
 // Used only during tests!
-export function _testReset () {
+export function _testReset() {
   _isInitialized = false;
   clearInterval(_pullChangesInterval);
   clearInterval(_writeChangesInterval);
@@ -119,7 +120,7 @@ export function _testReset () {
  * Non-blocking function to perform initial sync for an account. This will pull
  * all remote resources (if they exist) before initializing sync.
  */
-export function doInitialSync () {
+export function doInitialSync() {
   process.nextTick(async () => {
     // First, pull down all remote resources, without first creating new ones.
     // This makes sure that the first sync won't create resources locally, when
@@ -136,7 +137,7 @@ export function doInitialSync () {
  * ResourceGroup created for them. This function should be called on init (or maybe
  * even periodically) and can be removed once the bug stops persisting.
  */
-export async function fixDuplicateResourceGroups () {
+export async function fixDuplicateResourceGroups() {
   if (!session.isLoggedIn()) {
     return;
   }
@@ -153,7 +154,7 @@ export async function fixDuplicateResourceGroups () {
 
     // Fix duplicates
     const ids = resources.map(r => r.resourceGroupId);
-    const {deleteResourceGroupIds} = await session.syncFixDupes(ids);
+    const { deleteResourceGroupIds } = await session.syncFixDupes(ids);
 
     for (const idToDelete of deleteResourceGroupIds) {
       await store.removeResourceGroup(idToDelete);
@@ -164,13 +165,10 @@ export async function fixDuplicateResourceGroups () {
 
   if (duplicateCount) {
     logger.debug(`Fixed ${duplicateCount}/${workspaces.length} duplicate synced Workspaces`);
-    trackEvent('Sync', 'Fixed Duplicate');
-  } else {
-    logger.debug('No dupes found to fix');
   }
 }
 
-export async function writePendingChanges () {
+export async function writePendingChanges() {
   // First make a copy and clear pending changes
   const changes = Object.assign({}, _pendingDBChanges);
   _pendingDBChanges = {};
@@ -188,21 +186,39 @@ export async function writePendingChanges () {
   }
 }
 
-export async function push (resourceGroupId = null) {
+export async function push(resourceGroupId = null) {
   if (!session.isLoggedIn()) {
     return;
   }
 
-  let dirtyResources = [];
+  let allDirtyResources = [];
   if (resourceGroupId) {
-    dirtyResources = await store.findActiveDirtyResourcesForResourceGroup(resourceGroupId);
+    allDirtyResources = await store.findActiveDirtyResourcesForResourceGroup(resourceGroupId);
   } else {
-    dirtyResources = await store.findActiveDirtyResources();
+    allDirtyResources = await store.findActiveDirtyResources();
   }
 
-  if (!dirtyResources.length) {
+  if (!allDirtyResources.length) {
     logger.debug('No changes to push');
     return;
+  }
+
+  let dirtyResources = [];
+  for (const r of allDirtyResources) {
+    // Check if resource type is blacklisted by user
+    const config = await store.getConfig(r.resourceGroupId);
+
+    if (r.type === models.clientCertificate.type && config.syncDisableClientCertificates) {
+      logger.debug(`Skipping pushing blacklisted client certificate ${r.id}`);
+      continue;
+    }
+
+    if (r.type === models.cookieJar.type && config.syncDisableCookieJars) {
+      logger.debug(`Skipping pushing blacklisted cookie jar ${r.id}`);
+      continue;
+    }
+
+    dirtyResources.push(r);
   }
 
   let responseBody;
@@ -213,35 +229,30 @@ export async function push (resourceGroupId = null) {
     return;
   }
 
-  const {
-    updated,
-    created,
-    removed,
-    conflicts
-  } = responseBody;
+  const { updated, created, removed, conflicts } = responseBody;
 
   // Update all resource versions with the ones that were returned
-  for (const {id, version} of updated) {
+  for (const { id, version } of updated) {
     const resource = await store.getResourceByDocId(id);
-    await store.updateResource(resource, {version, dirty: false});
+    await store.updateResource(resource, { version, dirty: false });
   }
   if (updated.length) {
     logger.debug(`Push updated ${updated.length} resources`);
   }
 
   // Update all resource versions with the ones that were returned
-  for (const {id, version} of created) {
+  for (const { id, version } of created) {
     const resource = await store.getResourceByDocId(id);
-    await store.updateResource(resource, {version, dirty: false});
+    await store.updateResource(resource, { version, dirty: false });
   }
   if (created.length) {
     logger.debug(`Push created ${created.length} resources`);
   }
 
   // Update all resource versions with the ones that were returned
-  for (const {id, version} of removed) {
+  for (const { id, version } of removed) {
     const resource = await store.getResourceByDocId(id);
-    await store.updateResource(resource, {version, dirty: false});
+    await store.updateResource(resource, { version, dirty: false });
   }
   if (removed.length) {
     logger.debug(`Push removed ${removed.length} resources`);
@@ -286,7 +297,7 @@ export async function push (resourceGroupId = null) {
   db.flushChangesAsync();
 }
 
-export async function pull (resourceGroupId = null, createMissingResources = true) {
+export async function pull(resourceGroupId = null, createMissingResources = true) {
   if (!session.isLoggedIn()) {
     return;
   }
@@ -336,12 +347,7 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
     return;
   }
 
-  const {
-    updatedResources,
-    createdResources,
-    idsToPush,
-    idsToRemove
-  } = responseBody;
+  const { updatedResources, createdResources, idsToPush, idsToRemove } = responseBody;
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
   // Insert all the created docs to the DB //
@@ -352,16 +358,32 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
     let doc;
 
     try {
-      const {resourceGroupId, encContent} = serverResource;
+      const { resourceGroupId, encContent } = serverResource;
       doc = await decryptDoc(resourceGroupId, encContent);
     } catch (e) {
       logger.warn('Failed to decode created resource', e, serverResource);
       return;
     }
 
+    // Check if resource type is blacklisted by user
+    const config = await store.getConfig(serverResource.resourceGroupId);
+
+    if (
+      serverResource.type === models.clientCertificate.type &&
+      config.syncDisableClientCertificates
+    ) {
+      logger.debug(`[sync] Skipping pulling blacklisted client certificate ${serverResource.id}`);
+      continue;
+    }
+
+    if (serverResource.type === models.cookieJar.type && config.syncDisableCookieJars) {
+      logger.debug(`[sync] Skipping pulling blacklisted cookie jar ${serverResource.id}`);
+      continue;
+    }
+
     // Update local Resource
     try {
-      await store.insertResource(serverResource, {dirty: false});
+      await store.insertResource(serverResource, { dirty: false });
     } catch (e) {
       // This probably means we already have it. This should never happen, but
       // might due to a rare race condition.
@@ -380,7 +402,7 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
       // Mark as not seen if we created a new workspace from sync
       if (doc.type === models.workspace.type) {
         const workspaceMeta = await models.workspaceMeta.getOrCreateByParentId(doc._id);
-        await models.workspaceMeta.update(workspaceMeta, {hasSeen: false});
+        await models.workspaceMeta.update(workspaceMeta, { hasSeen: false });
       }
       await db.insert(doc, true);
     }
@@ -399,7 +421,7 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
   await db.bufferChanges();
   for (const serverResource of updatedResources) {
     try {
-      const {resourceGroupId, encContent} = serverResource;
+      const { resourceGroupId, encContent } = serverResource;
       const doc = await decryptDoc(resourceGroupId, encContent);
 
       // Update app database
@@ -411,7 +433,7 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
         serverResource.id,
         serverResource.resourceGroupId
       );
-      await store.updateResource(resource, serverResource, {dirty: false});
+      await store.updateResource(resource, serverResource, { dirty: false });
     } catch (e) {
       logger.warn('Failed to decode updated resource', e, serverResource);
     }
@@ -439,7 +461,7 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
     }
 
     // Mark resource as deleted
-    await store.updateResource(resource, {dirty: false, removed: true});
+    await store.updateResource(resource, { dirty: false, removed: true });
 
     // Remove from DB
     await db.remove(doc, true);
@@ -457,52 +479,52 @@ export async function pull (resourceGroupId = null, createMissingResources = tru
     }
 
     // Mark all resources to push as dirty for the next push
-    await store.updateResource(resource, {dirty: true});
+    await store.updateResource(resource, { dirty: true });
   }
 
   return updatedResources.length + createdResources.length;
 }
 
-export async function getOrCreateConfig (resourceGroupId) {
+export async function getOrCreateConfig(resourceGroupId) {
   const config = await store.getConfig(resourceGroupId);
 
   if (!config) {
-    return store.insertConfig({resourceGroupId});
+    return store.insertConfig({ resourceGroupId });
   } else {
     return config;
   }
 }
 
-export async function ensureConfigExists (resourceGroupId, syncMode) {
+export async function ensureConfigExists(resourceGroupId, syncMode) {
   const config = await store.getConfig(resourceGroupId);
   if (!config) {
-    await store.insertConfig({resourceGroupId, syncMode});
+    await store.insertConfig({ resourceGroupId, syncMode });
   }
 }
 
-export async function createOrUpdateConfig (resourceGroupId, syncMode) {
+export async function createOrUpdateConfig(resourceGroupId, patch) {
   const config = await store.getConfig(resourceGroupId);
-  const patch = {resourceGroupId, syncMode};
+  const finalPatch = { resourceGroupId, ...patch };
 
   if (config) {
-    return store.updateConfig(config, patch);
+    return store.updateConfig(config, finalPatch);
   } else {
-    return store.insertConfig(patch);
+    return store.insertConfig(finalPatch);
   }
 }
 
-export async function logout () {
+export async function logout() {
   await session.logout();
   await resetLocalData();
 }
 
-export async function cancelTrial () {
+export async function cancelTrial() {
   await session.endTrial();
   await session.logout();
   await resetLocalData();
 }
 
-export async function resetLocalData () {
+export async function resetLocalData() {
   for (const c of await store.allConfigs()) {
     await store.removeConfig(c);
   }
@@ -512,7 +534,7 @@ export async function resetLocalData () {
   }
 }
 
-export async function resetRemoteData () {
+export async function resetRemoteData() {
   await session.syncResetData();
 }
 
@@ -520,7 +542,7 @@ export async function resetRemoteData () {
 // HELPERS //
 // ~~~~~~~ //
 
-async function _handleChangeAndPush (event, doc, timestamp) {
+async function _handleChangeAndPush(event, doc, timestamp) {
   // Update the resource content and set dirty
   // TODO: Remove one of these steps since it does encryption twice
   // in the case where the resource does not exist yet
@@ -548,7 +570,7 @@ async function _handleChangeAndPush (event, doc, timestamp) {
 const _fetchResourceGroupPromises = {};
 const _resourceGroupCache = {};
 
-export async function fetchResourceGroup (resourceGroupId, invalidateCache = false) {
+export async function fetchResourceGroup(resourceGroupId, invalidateCache = false) {
   if (invalidateCache) {
     delete _resourceGroupCache[resourceGroupId];
     delete _fetchResourceGroupPromises[resourceGroupId];
@@ -612,7 +634,7 @@ export async function fetchResourceGroup (resourceGroupId, invalidateCache = fal
  * @param resourceGroupId
  * @private
  */
-async function _getResourceGroupSymmetricKey (resourceGroupId) {
+async function _getResourceGroupSymmetricKey(resourceGroupId) {
   let key = resourceGroupSymmetricKeysCache[resourceGroupId];
 
   if (!key) {
@@ -633,7 +655,7 @@ async function _getResourceGroupSymmetricKey (resourceGroupId) {
   return key;
 }
 
-export async function encryptDoc (resourceGroupId, doc) {
+export async function encryptDoc(resourceGroupId, doc) {
   try {
     const symmetricKey = await _getResourceGroupSymmetricKey(resourceGroupId);
 
@@ -652,7 +674,7 @@ export async function encryptDoc (resourceGroupId, doc) {
   }
 }
 
-export async function decryptDoc (resourceGroupId, messageJSON) {
+export async function decryptDoc(resourceGroupId, messageJSON) {
   let decrypted;
   try {
     const symmetricKey = await _getResourceGroupSymmetricKey(resourceGroupId);
@@ -677,12 +699,12 @@ export async function decryptDoc (resourceGroupId, messageJSON) {
   }
 }
 
-async function _getWorkspaceForDoc (doc) {
+async function _getWorkspaceForDoc(doc) {
   const ancestors = await db.withAncestors(doc);
   return ancestors.find(d => d.type === models.workspace.type);
 }
 
-export async function createResourceGroup (parentId, name) {
+export async function createResourceGroup(parentId, name) {
   // Generate symmetric key for ResourceGroup
   const rgSymmetricJWK = await crypt.generateAES256Key();
   const rgSymmetricJWKStr = JSON.stringify(rgSymmetricJWK);
@@ -707,7 +729,7 @@ export async function createResourceGroup (parentId, name) {
   return resourceGroup;
 }
 
-export async function createResource (doc, resourceGroupId) {
+export async function createResource(doc, resourceGroupId) {
   return store.insertResource({
     id: doc._id,
     name: doc.name || 'n/a', // Set name to the doc name if it has one
@@ -723,7 +745,7 @@ export async function createResource (doc, resourceGroupId) {
   });
 }
 
-export async function createResourceForDoc (doc) {
+export async function createResourceForDoc(doc) {
   // No resource yet, so create one
   const workspace = await _getWorkspaceForDoc(doc);
 
@@ -748,7 +770,7 @@ export async function createResourceForDoc (doc) {
   }
 }
 
-export async function getOrCreateResourceForDoc (doc) {
+export async function getOrCreateResourceForDoc(doc) {
   let [resource, ...extras] = await store.findResourcesByDocId(doc._id);
 
   // Sometimes there may be multiple resources created by accident for
@@ -764,7 +786,7 @@ export async function getOrCreateResourceForDoc (doc) {
   }
 }
 
-export async function getOrCreateAllActiveResources (resourceGroupId = null) {
+export async function getOrCreateAllActiveResources(resourceGroupId = null) {
   const startTime = Date.now();
   const activeResourceMap = {};
 
@@ -781,14 +803,14 @@ export async function getOrCreateAllActiveResources (resourceGroupId = null) {
 
   // Make sure Workspace is first, because the loop below depends on it
   const modelTypes = Object.keys(WHITE_LIST).sort(
-    (a, b) => a.type === models.workspace.type ? 1 : -1
+    (a, b) => (a.type === models.workspace.type ? 1 : -1)
   );
 
   let created = 0;
   for (const type of modelTypes) {
     for (const doc of await db.all(type)) {
       if (doc.isPrivate) {
-        logger.debug(`Skip private doc ${doc._id}`);
+        // logger.debug(`Skip private doc ${doc._id}`);
         continue;
       }
 
@@ -798,7 +820,7 @@ export async function getOrCreateAllActiveResources (resourceGroupId = null) {
           activeResourceMap[doc._id] = await createResourceForDoc(doc);
           created++;
         } catch (e) {
-          logger.error(`Failed to create resource for ${doc._id} ${e}`, {doc});
+          // logger.warn(`Failed to create resource for ${doc._id} ${e}`, {doc});
         }
       }
     }

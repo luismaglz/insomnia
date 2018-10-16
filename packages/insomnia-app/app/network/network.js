@@ -1,33 +1,62 @@
 // @flow
-import type {ResponseHeader, ResponseTimelineEntry} from '../models/response';
-import type {Request, RequestHeader} from '../models/request';
-import type {Workspace} from '../models/workspace';
-import type {Settings} from '../models/settings';
-import type {RenderedRequest} from '../common/render';
-import {getRenderContext, getRenderedRequest} from '../common/render';
+import type { ResponseHeader, ResponseTimelineEntry } from '../models/response';
+import type { Request, RequestHeader } from '../models/request';
+import type { Workspace } from '../models/workspace';
+import type { Settings } from '../models/settings';
+import type { RenderedRequest } from '../common/render';
+import { getRenderedRequestAndContext, RENDER_PURPOSE_SEND } from '../common/render';
 import mkdirp from 'mkdirp';
 import clone from 'clone';
-import {parse as urlParse, resolve as urlResolve} from 'url';
-import {Curl} from 'insomnia-node-libcurl';
-import {join as pathJoin} from 'path';
+import { parse as urlParse, resolve as urlResolve } from 'url';
+import { Curl } from 'insomnia-libcurl';
+import { join as pathJoin } from 'path';
 import uuid from 'uuid';
 import * as electron from 'electron';
 import * as models from '../models';
-import {AUTH_AWS_IAM, AUTH_BASIC, AUTH_DIGEST, AUTH_NETRC, AUTH_NTLM, CONTENT_TYPE_FORM_DATA, CONTENT_TYPE_FORM_URLENCODED, getAppVersion, getTempDir, STATUS_CODE_PLUGIN_ERROR} from '../common/constants';
-import {delay, describeByteSize, getContentTypeHeader, getLocationHeader, getSetCookieHeaders, hasAcceptEncodingHeader, hasAcceptHeader, hasAuthHeader, hasContentTypeHeader, hasUserAgentHeader, waitForStreamToFinish} from '../common/misc';
-import {setDefaultProtocol, smartEncodeUrl, buildQueryStringFromParams, joinUrlAndQueryString} from 'insomnia-url';
+import {
+  AUTH_AWS_IAM,
+  AUTH_BASIC,
+  AUTH_DIGEST,
+  AUTH_NETRC,
+  AUTH_NTLM,
+  CONTENT_TYPE_FORM_DATA,
+  CONTENT_TYPE_FORM_URLENCODED,
+  getAppVersion,
+  getTempDir,
+  STATUS_CODE_PLUGIN_ERROR
+} from '../common/constants';
+import {
+  delay,
+  describeByteSize,
+  getContentTypeHeader,
+  getHostHeader,
+  getLocationHeader,
+  getSetCookieHeaders,
+  hasAcceptEncodingHeader,
+  hasAcceptHeader,
+  hasAuthHeader,
+  hasContentTypeHeader,
+  hasUserAgentHeader,
+  waitForStreamToFinish
+} from '../common/misc';
+import {
+  buildQueryStringFromParams,
+  joinUrlAndQueryString,
+  setDefaultProtocol,
+  smartEncodeUrl
+} from 'insomnia-url';
 import fs from 'fs';
 import * as db from '../common/database';
 import * as CACerts from './cacert';
 import * as plugins from '../plugins/index';
 import * as pluginContexts from '../plugins/context/index';
-import {getAuthHeader} from './authentication';
-import {cookiesFromJar, jarFromCookies} from 'insomnia-cookies';
-import {urlMatchesCertHost} from './url-matches-cert-host';
+import { getAuthHeader } from './authentication';
+import { cookiesFromJar, jarFromCookies } from 'insomnia-cookies';
+import { urlMatchesCertHost } from './url-matches-cert-host';
 import aws4 from 'aws4';
-import {buildMultipart} from './multipart';
+import { buildMultipart } from './multipart';
 
-const {app} = electron.remote || electron;
+const { app } = electron.remote || electron;
 
 export type ResponsePatch = {
   statusMessage?: string,
@@ -52,65 +81,97 @@ export type ResponsePatch = {
 // Time since user's last keypress to wait before making the request
 const MAX_DELAY_TIME = 1000;
 
+// Special header value that will prevent the header being sent
+const DISABLE_HEADER_VALUE = '__Di$aB13d__';
+
 let cancelRequestFunction = null;
 let lastUserInteraction = Date.now();
 
-export function cancelCurrentRequest () {
+export function cancelCurrentRequest() {
   if (typeof cancelRequestFunction === 'function') {
     cancelRequestFunction();
   }
 }
 
-export async function _actuallySend (
+export async function _actuallySend(
   renderedRequest: RenderedRequest,
+  renderContext: Object,
   workspace: Workspace,
   settings: Settings
 ): Promise<ResponsePatch> {
   return new Promise(async resolve => {
     let timeline: Array<ResponseTimelineEntry> = [];
 
+    function addTimeline(name, value) {
+      timeline.push({ name, value, timestamp: Date.now() });
+    }
+
+    function addTimelineText(value) {
+      addTimeline('TEXT', value);
+    }
+
     // Initialize the curl handle
     const curl = new Curl();
 
     /** Helper function to respond with a success */
-    function respond (patch: ResponsePatch, bodyPath: ?string): void {
-      const response = Object.assign(({
-        parentId: renderedRequest._id,
-        bodyCompression: null, // Will default to .zip otherwise
-        timeline: timeline,
-        bodyPath: bodyPath || '',
-        settingSendCookies: renderedRequest.settingSendCookies,
-        settingStoreCookies: renderedRequest.settingStoreCookies
-      }: ResponsePatch), patch);
+    async function respond(
+      patch: ResponsePatch,
+      bodyPath: string | null,
+      noPlugins: boolean = false
+    ): Promise<void> {
+      const responsePatchBeforeHooks = Object.assign(
+        ({
+          parentId: renderedRequest._id,
+          bodyCompression: null, // Will default to .zip otherwise
+          timeline: timeline,
+          bodyPath: bodyPath || '',
+          settingSendCookies: renderedRequest.settingSendCookies,
+          settingStoreCookies: renderedRequest.settingStoreCookies
+        }: ResponsePatch),
+        patch
+      );
 
-      resolve(response);
+      if (noPlugins) {
+        resolve(responsePatchBeforeHooks);
+        return;
+      }
 
-      // Apply plugin hooks and don't wait for them and don't throw from them
-      process.nextTick(async () => {
-        try {
-          await _applyResponsePluginHooks(response);
-        } catch (err) {
-          // TODO: Better error handling here
-          console.warn('Response plugin failed', err);
-        }
-      });
+      let responsePatch: ?ResponsePatch;
+      try {
+        responsePatch = await _applyResponsePluginHooks(
+          responsePatchBeforeHooks,
+          renderedRequest,
+          renderContext
+        );
+      } catch (err) {
+        handleError(
+          new Error(`[plugin] Response hook failed plugin=${err.plugin.name} err=${err.message}`)
+        );
+        return;
+      }
+
+      resolve(responsePatch);
     }
 
     /** Helper function to respond with an error */
-    function handleError (err: Error): void {
-      respond({
-        url: renderedRequest.url,
-        parentId: renderedRequest._id,
-        error: err.message,
-        elapsedTime: 0,
-        statusMessage: 'Error',
-        settingSendCookies: renderedRequest.settingSendCookies,
-        settingStoreCookies: renderedRequest.settingStoreCookies
-      });
+    function handleError(err: Error): void {
+      respond(
+        {
+          url: renderedRequest.url,
+          parentId: renderedRequest._id,
+          error: err.message,
+          elapsedTime: 0,
+          statusMessage: 'Error',
+          settingSendCookies: renderedRequest.settingSendCookies,
+          settingStoreCookies: renderedRequest.settingStoreCookies
+        },
+        null,
+        true
+      );
     }
 
     /** Helper function to set Curl options */
-    function setOpt (opt: number, val: any, optional: boolean = false) {
+    function setOpt(opt: number, val: any, optional: boolean = false) {
       const name = Object.keys(Curl.option).find(name => Curl.option[name] === opt);
       try {
         curl.setOpt(opt, val);
@@ -123,20 +184,24 @@ export async function _actuallySend (
       }
     }
 
-    function enable (feature: number) {
+    function enable(feature: number) {
       curl.enable(feature);
     }
 
     try {
       // Setup the cancellation logic
       cancelRequestFunction = () => {
-        respond({
-          elapsedTime: curl.getInfo(Curl.info.TOTAL_TIME) * 1000,
-          bytesRead: curl.getInfo(Curl.info.SIZE_DOWNLOAD),
-          url: curl.getInfo(Curl.info.EFFECTIVE_URL),
-          statusMessage: 'Cancelled',
-          error: 'Request was cancelled'
-        });
+        respond(
+          {
+            elapsedTime: curl.getInfo(Curl.info.TOTAL_TIME) * 1000,
+            bytesRead: curl.getInfo(Curl.info.SIZE_DOWNLOAD),
+            url: curl.getInfo(Curl.info.EFFECTIVE_URL),
+            statusMessage: 'Cancelled',
+            error: 'Request was cancelled'
+          },
+          null,
+          true
+        );
 
         // Kill it!
         curl.close();
@@ -155,6 +220,11 @@ export async function _actuallySend (
       // NOTE: Setting this to -1 breaks some versions of libcurl
       if (settings.maxRedirects > 0) {
         setOpt(Curl.option.MAXREDIRS, settings.maxRedirects);
+      }
+
+      // Don't rebuild dot sequences in path
+      if (!renderedRequest.settingRebuildPath) {
+        setOpt(Curl.option.PATH_AS_IS, true);
       }
 
       // Only set CURLOPT_CUSTOMREQUEST if not HEAD or GET. This is because Curl
@@ -178,10 +248,7 @@ export async function _actuallySend (
       setOpt(Curl.option.DEBUGFUNCTION, (infoType: string, content: string) => {
         const name = Object.keys(Curl.info.debug).find(k => Curl.info.debug[k] === infoType) || '';
 
-        if (
-          infoType === Curl.info.debug.SSL_DATA_IN ||
-          infoType === Curl.info.debug.SSL_DATA_OUT
-        ) {
+        if (infoType === Curl.info.debug.SSL_DATA_IN || infoType === Curl.info.debug.SSL_DATA_OUT) {
           return 0;
         }
 
@@ -189,19 +256,16 @@ export async function _actuallySend (
         if (infoType === Curl.info.debug.DATA_OUT) {
           if (content.length === 0) {
             // Sometimes this happens, but I'm not sure why. Just ignore it.
-          } else if (content.length < 1000) {
-            timeline.push({name, value: content});
+          } else if (content.length < renderedRequest.settingMaxTimelineDataSize) {
+            addTimeline(name, content);
           } else {
-            timeline.push({name, value: `(${describeByteSize(content.length)} hidden)`});
+            addTimeline(name, `(${describeByteSize(content.length)} hidden)`);
           }
           return 0;
         }
 
         if (infoType === Curl.info.debug.DATA_IN) {
-          timeline.push({
-            name: 'TEXT',
-            value: `Received ${describeByteSize(content.length)} chunk`
-          });
+          addTimelineText(`Received ${describeByteSize(content.length)} chunk`);
           return 0;
         }
 
@@ -210,7 +274,7 @@ export async function _actuallySend (
           return 0;
         }
 
-        timeline.push({name, value: content});
+        addTimeline(name, content);
 
         return 0; // Must be here
       });
@@ -220,19 +284,23 @@ export async function _actuallySend (
 
       let lastPercent = 0;
       // NOTE: This option was added in 7.32.0 so make it optional
-      setOpt(Curl.option.XFERINFOFUNCTION, (dltotal, dlnow, ultotal, ulnow) => {
-        if (dltotal === 0) {
+      setOpt(
+        Curl.option.XFERINFOFUNCTION,
+        (dltotal, dlnow, ultotal, ulnow) => {
+          if (dltotal === 0) {
+            return 0;
+          }
+
+          const percent = Math.round((dlnow / dltotal) * 100);
+          if (percent !== lastPercent) {
+            // console.log(`[network] Request downloaded ${percent}%`);
+            lastPercent = percent;
+          }
+
           return 0;
-        }
-
-        const percent = Math.round(dlnow / dltotal * 100);
-        if (percent !== lastPercent) {
-          // console.log(`[network] Request downloaded ${percent}%`);
-          lastPercent = percent;
-        }
-
-        return 0;
-      }, true);
+        },
+        true
+      );
 
       // Set the URL, including the query parameters
       const qs = buildQueryStringFromParams(renderedRequest.parameters);
@@ -245,28 +313,28 @@ export async function _actuallySend (
         const protocol = (match && match[1]) || '';
         const socketPath = (match && match[2]) || '';
         const socketUrl = (match && match[3]) || '';
-        setOpt(Curl.option.URL, `${protocol}//${socketUrl}`);
+        curl.setUrl(`${protocol}//${socketUrl}`);
         setOpt(Curl.option.UNIX_SOCKET_PATH, socketPath);
       } else {
-        setOpt(Curl.option.URL, finalUrl);
+        curl.setUrl(finalUrl);
       }
-      timeline.push({name: 'TEXT', value: 'Preparing request to ' + finalUrl});
-      timeline.push({name: 'TEXT', value: `Using ${Curl.getVersion()}`});
+      addTimelineText('Preparing request to ' + finalUrl);
+      addTimelineText(`Using ${Curl.getVersion()}`);
 
       // log some things
       if (renderedRequest.settingEncodeUrl) {
-        timeline.push({name: 'TEXT', value: 'Enable automatic URL encoding'});
+        addTimelineText('Enable automatic URL encoding');
       } else {
-        timeline.push({name: 'TEXT', value: 'Disable automatic URL encoding'});
+        addTimelineText('Disable automatic URL encoding');
       }
 
       // SSL Validation
       if (settings.validateSSL) {
-        timeline.push({name: 'TEXT', value: 'Enable SSL validation'});
+        addTimelineText('Enable SSL validation');
       } else {
         setOpt(Curl.option.SSL_VERIFYHOST, 0);
         setOpt(Curl.option.SSL_VERIFYPEER, 0);
-        timeline.push({name: 'TEXT', value: 'Disable SSL validation'});
+        addTimelineText('Disable SSL validation');
       }
 
       // Setup CA Root Certificates if not on Mac. Thanks to libcurl, Mac will use
@@ -301,40 +369,39 @@ export async function _actuallySend (
             expiresTimestamp = Math.round(expiresDate.getTime() / 1000);
           }
 
-          setOpt(Curl.option.COOKIELIST, [
-            cookie.httpOnly ? `#HttpOnly_${cookie.domain}` : cookie.domain,
-            cookie.hostOnly ? 'FALSE' : 'TRUE',
-            cookie.path,
-            cookie.secure ? 'TRUE' : 'FALSE',
-            expiresTimestamp,
-            cookie.key,
-            cookie.value
-          ].join('\t'));
+          setOpt(
+            Curl.option.COOKIELIST,
+            [
+              cookie.httpOnly ? `#HttpOnly_${cookie.domain}` : cookie.domain,
+              cookie.hostOnly ? 'FALSE' : 'TRUE',
+              cookie.path,
+              cookie.secure ? 'TRUE' : 'FALSE',
+              expiresTimestamp,
+              cookie.key,
+              cookie.value
+            ].join('\t')
+          );
         }
 
-        for (const {name, value} of renderedRequest.cookies) {
+        for (const { name, value } of renderedRequest.cookies) {
           setOpt(Curl.option.COOKIE, `${name}=${value}`);
         }
 
-        timeline.push({
-          name: 'TEXT',
-          value: 'Enable cookie sending with jar of ' +
-          `${cookies.length} cookie${cookies.length !== 1 ? 's' : ''}`
-        });
+        addTimelineText(
+          'Enable cookie sending with jar of ' +
+            `${cookies.length} cookie${cookies.length !== 1 ? 's' : ''}`
+        );
       } else {
-        timeline.push({
-          name: 'TEXT',
-          value: 'Disable cookie sending due to user setting'
-        });
+        addTimelineText('Disable cookie sending due to user setting');
       }
 
       // Set proxy settings if we have them
       if (settings.proxyEnabled) {
-        const {protocol} = urlParse(renderedRequest.url);
-        const {httpProxy, httpsProxy, noProxy} = settings;
+        const { protocol } = urlParse(renderedRequest.url);
+        const { httpProxy, httpsProxy, noProxy } = settings;
         const proxyHost = protocol === 'https:' ? httpsProxy : httpProxy;
         const proxy = proxyHost ? setDefaultProtocol(proxyHost) : null;
-        timeline.push({name: 'TEXT', value: `Enable network proxy for ${protocol || ''}`});
+        addTimelineText(`Enable network proxy for ${protocol || ''}`);
         if (proxy) {
           setOpt(Curl.option.PROXY, proxy);
           setOpt(Curl.option.PROXYAUTH, Curl.auth.ANY);
@@ -375,23 +442,23 @@ export async function _actuallySend (
             return blobOrFilename;
           };
 
-          const {passphrase, cert, key, pfx} = certificate;
+          const { passphrase, cert, key, pfx } = certificate;
 
           if (cert) {
             setOpt(Curl.option.SSLCERT, ensureFile(cert));
             setOpt(Curl.option.SSLCERTTYPE, 'PEM');
-            timeline.push({name: 'TEXT', value: 'Adding SSL PEM certificate'});
+            addTimelineText('Adding SSL PEM certificate');
           }
 
           if (pfx) {
             setOpt(Curl.option.SSLCERT, ensureFile(pfx));
             setOpt(Curl.option.SSLCERTTYPE, 'P12');
-            timeline.push({name: 'TEXT', value: 'Adding SSL P12 certificate'});
+            addTimelineText('Adding SSL P12 certificate');
           }
 
           if (key) {
             setOpt(Curl.option.SSLKEY, ensureFile(key));
-            timeline.push({name: 'TEXT', value: 'Adding SSL KEY certificate'});
+            addTimelineText('Adding SSL KEY certificate');
           }
 
           if (passphrase) {
@@ -408,7 +475,9 @@ export async function _actuallySend (
         requestBody = buildQueryStringFromParams(renderedRequest.body.params || [], false);
       } else if (renderedRequest.body.mimeType === CONTENT_TYPE_FORM_DATA) {
         const params = renderedRequest.body.params || [];
-        const {filePath: multipartBodyPath, boundary, contentLength} = await buildMultipart(params);
+        const { filePath: multipartBodyPath, boundary, contentLength } = await buildMultipart(
+          params
+        );
 
         // Extend the Content-Type header
         const contentTypeHeader = getContentTypeHeader(headers);
@@ -421,7 +490,7 @@ export async function _actuallySend (
           });
         }
 
-        const fd = fs.openSync(multipartBodyPath, 'r+');
+        const fd = fs.openSync(multipartBodyPath, 'r');
 
         setOpt(Curl.option.INFILESIZE_LARGE, contentLength);
         setOpt(Curl.option.UPLOAD, 1);
@@ -432,16 +501,15 @@ export async function _actuallySend (
 
         const fn = () => {
           fs.closeSync(fd);
-          fs.unlink(multipartBodyPath, () => {
-          });
+          fs.unlink(multipartBodyPath, () => {});
         };
 
         curl.on('end', fn);
         curl.on('error', fn);
       } else if (renderedRequest.body.fileName) {
-        const {size} = fs.statSync(renderedRequest.body.fileName);
+        const { size } = fs.statSync(renderedRequest.body.fileName);
         const fileName = renderedRequest.body.fileName || '';
-        const fd = fs.openSync(fileName, 'r+');
+        const fd = fs.openSync(fileName, 'r');
 
         setOpt(Curl.option.INFILESIZE_LARGE, size);
         setOpt(Curl.option.UPLOAD, 1);
@@ -462,8 +530,11 @@ export async function _actuallySend (
 
       if (!noBody) {
         // Don't chunk uploads
-        headers.push({name: 'Expect', value: ''});
-        headers.push({name: 'Transfer-Encoding', value: ''});
+        headers.push({ name: 'Expect', value: DISABLE_HEADER_VALUE });
+        headers.push({
+          name: 'Transfer-Encoding',
+          value: DISABLE_HEADER_VALUE
+        });
       }
 
       // If we calculated the body within Insomnia (ie. not computed by Curl)
@@ -471,49 +542,46 @@ export async function _actuallySend (
         setOpt(Curl.option.POSTFIELDS, requestBody);
       }
 
-      let responseBodyBytes = 0;
-      const responsesDir = pathJoin(app.getPath('userData'), 'responses');
-      mkdirp.sync(responsesDir);
-      const responseBodyPath = pathJoin(responsesDir, uuid.v4() + '.response');
-      const responseBodyWriteStream = fs.createWriteStream(responseBodyPath);
-      curl.on('end', () => responseBodyWriteStream.end());
-      curl.on('error', () => responseBodyWriteStream.end());
-      setOpt(Curl.option.WRITEFUNCTION, (buff: Buffer) => {
-        responseBodyBytes += buff.length;
-        responseBodyWriteStream.write(buff);
-        return buff.length;
-      });
-
       // Handle Authorization header
       if (!hasAuthHeader(headers) && !renderedRequest.authentication.disabled) {
         if (renderedRequest.authentication.type === AUTH_BASIC) {
-          const {username, password} = renderedRequest.authentication;
+          const { username, password } = renderedRequest.authentication;
           setOpt(Curl.option.HTTPAUTH, Curl.auth.BASIC);
           setOpt(Curl.option.USERNAME, username || '');
           setOpt(Curl.option.PASSWORD, password || '');
         } else if (renderedRequest.authentication.type === AUTH_DIGEST) {
-          const {username, password} = renderedRequest.authentication;
+          const { username, password } = renderedRequest.authentication;
           setOpt(Curl.option.HTTPAUTH, Curl.auth.DIGEST);
           setOpt(Curl.option.USERNAME, username || '');
           setOpt(Curl.option.PASSWORD, password || '');
         } else if (renderedRequest.authentication.type === AUTH_NTLM) {
-          const {username, password} = renderedRequest.authentication;
+          const { username, password } = renderedRequest.authentication;
           setOpt(Curl.option.HTTPAUTH, Curl.auth.NTLM);
           setOpt(Curl.option.USERNAME, username || '');
           setOpt(Curl.option.PASSWORD, password || '');
         } else if (renderedRequest.authentication.type === AUTH_AWS_IAM) {
           if (!noBody && !requestBody) {
             return handleError(
-              new Error('AWS authentication not supported for provided body type'));
+              new Error('AWS authentication not supported for provided body type')
+            );
           }
+          const { authentication } = renderedRequest;
+          const credentials = {
+            accessKeyId: authentication.accessKeyId || '',
+            secretAccessKey: authentication.secretAccessKey || '',
+            sessionToken: authentication.sessionToken || ''
+          };
+
           const extraHeaders = _getAwsAuthHeaders(
-            renderedRequest.authentication.accessKeyId || '',
-            renderedRequest.authentication.secretAccessKey || '',
+            credentials,
             headers,
             requestBody || '',
             finalUrl,
-            renderedRequest.method
+            renderedRequest.method,
+            authentication.region || '',
+            authentication.service || ''
           );
+
           for (const header of extraHeaders) {
             headers.push(header);
           }
@@ -538,12 +606,12 @@ export async function _actuallySend (
 
       // Send a default Accept headers of anything
       if (!hasAcceptHeader(headers)) {
-        headers.push({name: 'Accept', value: '*/*'}); // Default to anything
+        headers.push({ name: 'Accept', value: '*/*' }); // Default to anything
       }
 
       // Don't auto-send Accept-Encoding header
       if (!hasAcceptEncodingHeader(headers)) {
-        headers.push({name: 'Accept-Encoding', value: ''});
+        headers.push({ name: 'Accept-Encoding', value: DISABLE_HEADER_VALUE });
       }
 
       // Set User-Agent if it't not already in headers
@@ -553,14 +621,37 @@ export async function _actuallySend (
 
       // Prevent curl from adding default content-type header
       if (!hasContentTypeHeader(headers)) {
-        headers.push({name: 'content-type', value: ''});
+        headers.push({ name: 'content-type', value: DISABLE_HEADER_VALUE });
       }
 
       // NOTE: This is last because headers might be modified multiple times
-      const headerStrings = headers
-        .filter(h => h.name)
-        .map(h => `${(h.name || '').trim()}: ${h.value}`);
+      const headerStrings = headers.filter(h => h.name).map(h => {
+        const value = h.value || '';
+        if (value === '') {
+          // Curl needs a semicolon suffix to send empty header values
+          return `${h.name};`;
+        } else if (value === DISABLE_HEADER_VALUE) {
+          // Tell Curl NOT to send the header if value is null
+          return `${h.name}:`;
+        } else {
+          // Send normal header value
+          return `${h.name}: ${value}`;
+        }
+      });
       setOpt(Curl.option.HTTPHEADER, headerStrings);
+
+      let responseBodyBytes = 0;
+      const responsesDir = pathJoin(app.getPath('userData'), 'responses');
+      mkdirp.sync(responsesDir);
+      const responseBodyPath = pathJoin(responsesDir, uuid.v4() + '.response');
+      const responseBodyWriteStream = fs.createWriteStream(responseBodyPath);
+      curl.on('end', () => responseBodyWriteStream.end());
+      curl.on('error', () => responseBodyWriteStream.end());
+      setOpt(Curl.option.WRITEFUNCTION, (buff: Buffer) => {
+        responseBodyBytes += buff.length;
+        responseBodyWriteStream.write(buff);
+        return buff.length;
+      });
 
       // Handle the response ending
       curl.on('end', async (_1, _2, rawHeaders) => {
@@ -569,9 +660,9 @@ export async function _actuallySend (
         const lastCurlHeadersObject = allCurlHeadersObjects[allCurlHeadersObjects.length - 1];
 
         // Collect various things
-        const httpVersion = lastCurlHeadersObject.version || 'Unknown';
+        const httpVersion = lastCurlHeadersObject.version || '';
         const statusCode = lastCurlHeadersObject.code || -1;
-        const statusMessage = lastCurlHeadersObject.reason || 'Unknown';
+        const statusMessage = lastCurlHeadersObject.reason || '';
 
         // Collect the headers
         const headers = lastCurlHeadersObject.headers;
@@ -585,7 +676,7 @@ export async function _actuallySend (
         let setCookieStrings: Array<string> = [];
         const jar = jarFromCookies(renderedRequest.cookieJar.cookies);
 
-        for (const {headers} of allCurlHeadersObjects) {
+        for (const { headers } of allCurlHeadersObjects) {
           // Collect Set-Cookie headers
           const setCookieHeaders = getSetCookieHeaders(headers);
           setCookieStrings = [...setCookieStrings, ...setCookieHeaders.map(h => h.value)];
@@ -602,23 +693,23 @@ export async function _actuallySend (
           try {
             jar.setCookieSync(setCookieStr, currentUrl);
           } catch (err) {
-            timeline.push({name: 'TEXT', value: `Rejected cookie: ${err.message}`});
+            addTimelineText(`Rejected cookie: ${err.message}`);
           }
         }
 
         // Update cookie jar if we need to and if we found any cookies
         if (renderedRequest.settingStoreCookies && setCookieStrings.length) {
           const cookies = await cookiesFromJar(jar);
-          models.cookieJar.update(renderedRequest.cookieJar, {cookies});
+          models.cookieJar.update(renderedRequest.cookieJar, { cookies });
         }
 
         // Print informational message
         if (setCookieStrings.length > 0) {
           const n = setCookieStrings.length;
           if (renderedRequest.settingStoreCookies) {
-            timeline.push({name: 'TEXT', value: `Saved ${n} cookie${n === 1 ? '' : 's'}`});
+            addTimelineText(`Saved ${n} cookie${n === 1 ? '' : 's'}`);
           } else {
-            timeline.push({name: 'TEXT', value: `Ignored ${n} cookie${n === 1 ? '' : 's'}`});
+            addTimelineText(`Ignored ${n} cookie${n === 1 ? '' : 's'}`);
           }
         }
 
@@ -644,7 +735,7 @@ export async function _actuallySend (
         respond(responsePatch, responseBodyPath);
       });
 
-      curl.on('error', function (err, code) {
+      curl.on('error', function(err, code) {
         let error = err + '';
         let statusMessage = 'Error';
 
@@ -653,7 +744,7 @@ export async function _actuallySend (
           statusMessage = 'Abort';
         }
 
-        respond({statusMessage, error});
+        respond({ statusMessage, error }, null, true);
       });
 
       curl.perform();
@@ -663,7 +754,7 @@ export async function _actuallySend (
   });
 }
 
-export async function sendWithSettings (
+export async function sendWithSettings(
   requestId: string,
   requestPatch: Object
 ): Promise<ResponsePatch> {
@@ -674,6 +765,7 @@ export async function sendWithSettings (
 
   const settings = await models.settings.getOrCreate();
   const ancestors = await db.withAncestors(request, [
+    models.request.type,
     models.requestGroup.type,
     models.workspace.type
   ]);
@@ -693,20 +785,17 @@ export async function sendWithSettings (
     parentId: request._id
   });
 
-  let renderedRequest: RenderedRequest;
+  let renderResult: { request: RenderedRequest, context: Object };
   try {
-    renderedRequest = await getRenderedRequest(newRequest, environmentId);
+    renderResult = await getRenderedRequestAndContext(newRequest, environmentId);
   } catch (err) {
     throw new Error(`Failed to render request: ${requestId}`);
   }
 
-  return _actuallySend(renderedRequest, workspace, settings);
+  return _actuallySend(renderResult.request, renderResult.context, workspace, settings);
 }
 
-export async function send (
-  requestId: string,
-  environmentId: string
-): Promise<ResponsePatch> {
+export async function send(requestId: string, environmentId: string): Promise<ResponsePatch> {
   // HACK: wait for all debounces to finish
   /*
    * TODO: Do this in a more robust way
@@ -725,6 +814,7 @@ export async function send (
   const request = await models.request.getById(requestId);
   const settings = await models.settings.getOrCreate();
   const ancestors = await db.withAncestors(request, [
+    models.request.type,
     models.requestGroup.type,
     models.workspace.type
   ]);
@@ -733,8 +823,14 @@ export async function send (
     throw new Error(`Failed to find request to send for ${requestId}`);
   }
 
-  const renderedRequestBeforePlugins = await getRenderedRequest(request, environmentId);
-  const renderedContextBeforePlugins = await getRenderContext(request, environmentId, ancestors);
+  const renderResult = await getRenderedRequestAndContext(
+    request,
+    environmentId,
+    RENDER_PURPOSE_SEND
+  );
+
+  const renderedRequestBeforePlugins = renderResult.request;
+  const renderedContextBeforePlugins = renderResult.context;
 
   const workspaceDoc = ancestors.find(doc => doc.type === models.workspace.type);
   const workspace = await models.workspace.getById(workspaceDoc ? workspaceDoc._id : 'n/a');
@@ -750,33 +846,29 @@ export async function send (
     );
   } catch (err) {
     return {
-      response: {
-        url: renderedRequestBeforePlugins.url,
-        parentId: renderedRequestBeforePlugins._id,
-        error: err.message,
-        statusCode: STATUS_CODE_PLUGIN_ERROR,
-        statusMessage: err.plugin ? `Plugin ${err.plugin.name}` : 'Plugin',
-        settingSendCookies: renderedRequestBeforePlugins.settingSendCookies,
-        settingStoreCookies: renderedRequestBeforePlugins.settingStoreCookies
-      },
-      bodyBuffer: null
+      url: renderedRequestBeforePlugins.url,
+      parentId: renderedRequestBeforePlugins._id,
+      error: err.message,
+      statusCode: STATUS_CODE_PLUGIN_ERROR,
+      statusMessage: err.plugin ? `Plugin ${err.plugin.name}` : 'Plugin',
+      settingSendCookies: renderedRequestBeforePlugins.settingSendCookies,
+      settingStoreCookies: renderedRequestBeforePlugins.settingStoreCookies
     };
   }
 
-  return _actuallySend(renderedRequest, workspace, settings);
+  return _actuallySend(renderedRequest, renderedContextBeforePlugins, workspace, settings);
 }
 
-async function _applyRequestPluginHooks (
+async function _applyRequestPluginHooks(
   renderedRequest: RenderedRequest,
   renderedContext: Object
 ): Promise<RenderedRequest> {
-  let newRenderedRequest = renderedRequest;
-  for (const {plugin, hook} of await plugins.getRequestHooks()) {
-    newRenderedRequest = clone(newRenderedRequest);
-
+  const newRenderedRequest = clone(renderedRequest);
+  for (const { plugin, hook } of await plugins.getRequestHooks()) {
     const context = {
-      ...pluginContexts.app.init(plugin),
-      ...pluginContexts.request.init(plugin, newRenderedRequest, renderedContext)
+      ...pluginContexts.app.init(),
+      ...pluginContexts.store.init(plugin),
+      ...pluginContexts.request.init(newRenderedRequest, renderedContext)
     };
 
     try {
@@ -790,13 +882,20 @@ async function _applyRequestPluginHooks (
   return newRenderedRequest;
 }
 
-async function _applyResponsePluginHooks (
-  response: ResponsePatch
-): Promise<void> {
-  for (const {plugin, hook} of await plugins.getResponseHooks()) {
+async function _applyResponsePluginHooks(
+  response: ResponsePatch,
+  request: RenderedRequest,
+  renderContext: Object
+): Promise<ResponsePatch> {
+  const newResponse = clone(response);
+  const newRequest = clone(request);
+
+  for (const { plugin, hook } of await plugins.getResponseHooks()) {
     const context = {
-      ...pluginContexts.app.init(plugin),
-      ...pluginContexts.response.init(plugin, response)
+      ...pluginContexts.app.init(),
+      ...pluginContexts.store.init(plugin),
+      ...pluginContexts.response.init(newResponse),
+      ...pluginContexts.request.init(newRequest, renderContext, true)
     };
 
     try {
@@ -806,11 +905,18 @@ async function _applyResponsePluginHooks (
       throw err;
     }
   }
+
+  return newResponse;
 }
 
-export function _parseHeaders (
+export function _parseHeaders(
   buffer: Buffer
-): Array<{headers: Array<ResponseHeader>, version: string, code: number, reason: string}> {
+): Array<{
+  headers: Array<ResponseHeader>,
+  version: string,
+  code: number,
+  reason: string
+}> {
   const results = [];
 
   const lines = buffer.toString('utf8').split(/\r?\n|\r/g);
@@ -836,7 +942,7 @@ export function _parseHeaders (
       };
     } else {
       const [name, value] = line.split(/:\s(.+)/);
-      const header: ResponseHeader = {name, value: value || ''};
+      const header: ResponseHeader = { name, value: value || '' };
       currentResult.headers.push(header);
     }
   }
@@ -845,34 +951,41 @@ export function _parseHeaders (
 }
 
 // exported for unit tests only
-export function _getAwsAuthHeaders (
-  accessKeyId: string,
-  secretAccessKey: string,
+export function _getAwsAuthHeaders(
+  credentials: {
+    accessKeyId: string,
+    secretAccessKey: string,
+    sessionToken: string
+  },
   headers: Array<RequestHeader>,
   body: string,
   url: string,
-  method: string
-) {
-  const credentials = {accessKeyId, secretAccessKey};
-
+  method: string,
+  region?: string,
+  service?: string
+): Array<{ name: string, value: string, disabled?: boolean }> {
   const parsedUrl = urlParse(url);
   const contentTypeHeader = getContentTypeHeader(headers);
 
+  // AWS uses host header for signing so prioritize that if the user set it manually
+  const hostHeader = getHostHeader(headers);
+  const host = hostHeader ? hostHeader.value : parsedUrl.host;
+
   const awsSignOptions = {
+    service,
+    region,
+    host,
     body,
     method,
     path: parsedUrl.path,
-    host: parsedUrl.hostname, // Purposefully not ".host" because we don't want the port
-    headers: {
-      'content-type': contentTypeHeader ? contentTypeHeader.value : ''
-    }
+    headers: contentTypeHeader ? { 'content-type': contentTypeHeader.value } : {}
   };
 
   const signature = aws4.sign(awsSignOptions, credentials);
 
   return Object.keys(signature.headers)
     .filter(name => name !== 'content-type') // Don't add this because we already have it
-    .map(name => ({name, value: signature.headers[name]}));
+    .map(name => ({ name, value: signature.headers[name] }));
 }
 
 document.addEventListener('keydown', (e: KeyboardEvent) => {
@@ -883,6 +996,6 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   lastUserInteraction = Date.now();
 });
 
-document.addEventListener('paste', e => {
+document.addEventListener('paste', (e: Event) => {
   lastUserInteraction = Date.now();
 });

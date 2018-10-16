@@ -1,7 +1,9 @@
 import path from 'path';
+import zlib from 'zlib';
+import fs from 'fs';
 import * as electron from 'electron';
 import * as models from '../../models';
-import {globalBeforeEach} from '../../__jest__/before-each';
+import { globalBeforeEach } from '../../__jest__/before-each';
 
 describe('migrate()', () => {
   beforeEach(async () => {
@@ -11,7 +13,7 @@ describe('migrate()', () => {
   });
 
   it('migrates utf8 body correctly', async () => {
-    const initialModel = {body: 'hello world!', encoding: 'utf8'};
+    const initialModel = { body: 'hello world!', encoding: 'utf8' };
 
     const newModel = await models.initModel(models.response.type, initialModel);
     const expectedBodyPath = path.join(
@@ -22,7 +24,7 @@ describe('migrate()', () => {
 
     // Should have set bodyPath and stored the body
     expect(newModel.bodyPath).toBe(expectedBodyPath);
-    expect(storedBody + '').toBe('hello world!');
+    expect(storedBody.toString()).toBe('hello world!');
 
     // Should have stripped these
     expect(newModel.body).toBeUndefined();
@@ -30,7 +32,7 @@ describe('migrate()', () => {
   });
 
   it('migrates base64 body correctly', async () => {
-    const initialModel = {body: 'aGVsbG8gd29ybGQh', encoding: 'base64'};
+    const initialModel = { body: 'aGVsbG8gd29ybGQh', encoding: 'base64' };
 
     const newModel = await models.initModel(models.response.type, initialModel);
     jest.runAllTimers();
@@ -46,11 +48,11 @@ describe('migrate()', () => {
 
     // Should have set bodyPath and stored the body
     expect(newModel.bodyPath).toBe(expectedBodyPath);
-    expect(storedBody + '').toBe('hello world!');
+    expect(storedBody.toString()).toBe('hello world!');
   });
 
   it('migrates empty body', async () => {
-    const initialModel = {body: ''};
+    const initialModel = { body: '' };
 
     const newModel = await models.initModel(models.response.type, initialModel);
     jest.runAllTimers();
@@ -68,11 +70,11 @@ describe('migrate()', () => {
 
     // Should have set bodyPath and stored the body
     expect(newModel.bodyPath).toBe(expectedBodyPath);
-    expect(storedBody + '').toBe('');
+    expect(storedBody.toString()).toBe('');
   });
 
   it('does not migrate body again', async () => {
-    const initialModel = {bodyPath: '/foo/bar'};
+    const initialModel = { bodyPath: '/foo/bar' };
 
     const newModel = await models.initModel(models.response.type, initialModel);
 
@@ -84,23 +86,54 @@ describe('migrate()', () => {
     expect(newModel.bodyPath).toBe('/foo/bar');
   });
 
-  it('migrates leaves bodyCompression for null', async () => {
-    expect((await models.initModel(models.response.type, {
-      bodyPath: '/foo/bar',
-      bodyCompression: null
-    })).bodyCompression).toBe(null);
+  it('does it', async () => {
+    const bodyPath = path.join(
+      electron.remote.app.getPath('userData'),
+      'foo.zip'
+    );
+    fs.writeFileSync(bodyPath, zlib.gzipSync('Hello World!'));
+
+    const response = await models.initModel(models.response.type, { bodyPath });
+    const body = await models.response.getBodyBuffer(response).toString();
+
+    expect(response.bodyCompression).toBe('zip');
+    expect(body).toBe('Hello World!');
   });
 
-  it('migrates sets bodyCompression to null if does not have one yet', async () => {
-    expect((await models.initModel(models.response.type, {
-      bodyPath: '/foo/bar'
-    })).bodyCompression).toBe(null);
+  it('migrates old bodies', async () => {
+    const response = await models.initModel(models.response.type, {
+      body: 'aGVsbG8gd29ybGQh',
+      encoding: 'base64'
+    });
+    const body = await models.response.getBodyBuffer(response).toString();
+
+    expect(response.bodyCompression).toBe(null);
+    expect(body).toBe('hello world!');
+  });
+
+  it('migrates leaves bodyCompression for null', async () => {
+    expect(
+      (await models.initModel(models.response.type, {
+        bodyPath: '/foo/bar',
+        bodyCompression: null
+      })).bodyCompression
+    ).toBe(null);
+  });
+
+  it('migrates sets bodyCompression to zip if does not have one yet', async () => {
+    expect(
+      (await models.initModel(models.response.type, {
+        bodyPath: '/foo/bar'
+      })).bodyCompression
+    ).toBe('zip');
   });
 
   it('migrates leaves bodyCompression if string', async () => {
-    expect((await models.initModel(models.response.type, {
-      bodyPath: '/foo/bar',
-      bodyCompression: 'zip'
-    })).bodyCompression).toBe('zip');
+    expect(
+      (await models.initModel(models.response.type, {
+        bodyPath: '/foo/bar',
+        bodyCompression: 'zip'
+      })).bodyCompression
+    ).toBe('zip');
   });
 });

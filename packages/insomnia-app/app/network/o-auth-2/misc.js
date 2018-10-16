@@ -4,32 +4,56 @@ import querystring from 'querystring';
 
 const AUTH_WINDOW_SESSION_ID = uuid.v4();
 
-export function responseToObject (body, keys) {
+export function responseToObject(body, keys) {
   let data = null;
   try {
     data = JSON.parse(body);
-  } catch (err) {
-  }
+  } catch (err) {}
 
   if (!data) {
     try {
       data = querystring.parse(body);
-    } catch (err) {
-    }
+    } catch (err) {}
   }
 
   let results = {};
   for (const key of keys) {
-    const value = data[key] !== undefined ? data[key] : null;
-    results[key] = value;
+    results[key] = data[key] !== undefined ? data[key] : null;
   }
 
   return results;
 }
 
-export function authorizeUserInWindow (url, urlRegex = /.*/) {
+export function authorizeUserInWindow(
+  url,
+  urlSuccessRegex = /(code=).*/,
+  urlFailureRegex = /(error=).*/
+) {
   return new Promise((resolve, reject) => {
     let finalUrl = null;
+
+    function _parseUrl(currentUrl) {
+      if (currentUrl.match(urlSuccessRegex)) {
+        console.log(
+          `[oauth2] Matched success redirect to "${currentUrl}" with ${urlSuccessRegex.toString()}`
+        );
+        finalUrl = currentUrl;
+        child.close();
+      } else if (currentUrl.match(urlFailureRegex)) {
+        console.log(
+          `[oauth2] Matched error redirect to "${currentUrl}" with ${urlFailureRegex.toString()}`
+        );
+        finalUrl = currentUrl;
+        child.close();
+      } else if (currentUrl === url) {
+        // It's the first one, so it's not a redirect
+        console.log(`[oauth2] Loaded "${currentUrl}"`);
+      } else {
+        console.log(
+          `[oauth2] Ignoring URL "${currentUrl}". Didn't match ${urlSuccessRegex.toString()}`
+        );
+      }
+    }
 
     // Create a child window
     const child = new electron.remote.BrowserWindow({
@@ -45,7 +69,8 @@ export function authorizeUserInWindow (url, urlRegex = /.*/) {
       if (finalUrl) {
         resolve(finalUrl);
       } else {
-        reject(new Error('Authorization window closed'));
+        let errorDescription = 'Authorization window closed';
+        reject(new Error(errorDescription));
       }
     });
 
@@ -53,17 +78,16 @@ export function authorizeUserInWindow (url, urlRegex = /.*/) {
     child.webContents.on('did-navigate', () => {
       // Be sure to resolve URL so that we can handle redirects with no host like /foo/bar
       const currentUrl = child.webContents.getURL();
-      if (currentUrl.match(urlRegex)) {
-        console.log(`[oauth2] Matched redirect to "${currentUrl}" with ${urlRegex.toString()}`);
-        finalUrl = currentUrl;
-        child.close();
-      } else if (currentUrl === url) {
-        // It's the first one, so it's not a redirect
-        console.log(`[oauth2] Loaded "${currentUrl}"`);
-      } else {
-        console.log(`[oauth2] Ignoring URL "${currentUrl}". Didn't match ${urlRegex.toString()}`);
-      }
+      _parseUrl(currentUrl);
     });
+
+    child.webContents.on(
+      'did-fail-load',
+      (e, errorCode, errorDescription, url) => {
+        // Listen for did-fail-load to be able to parse the URL even when the callback server is unreachable
+        _parseUrl(url);
+      }
+    );
 
     // Show the window to the user after it loads
     child.on('ready-to-show', child.show.bind(child));

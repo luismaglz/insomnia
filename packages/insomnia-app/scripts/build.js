@@ -9,13 +9,13 @@ const configRenderer = require('../webpack/webpack.config.production.babel');
 const configMain = require('../webpack/webpack.config.electron.babel');
 
 // Start build if ran from CLI
-if (require.start === module) {
+if (require.main === module) {
   process.nextTick(async () => {
     await module.exports.start();
   });
 }
 
-module.exports.start = async function () {
+module.exports.start = async function() {
   // Remove folders first
   console.log('[build] Removing existing directories');
   await emptyDir('../build');
@@ -32,7 +32,7 @@ module.exports.start = async function () {
   await copyFiles('../app/icons/', '../build/');
 
   // Generate package.json
-  await generatePackageJson('../package.json', '../app/package.json', '../build/package.json');
+  await generatePackageJson('../package.json', '../build/package.json');
 
   // Install Node modules
   console.log('[build] Installing dependencies');
@@ -41,7 +41,7 @@ module.exports.start = async function () {
   console.log('[build] Complete!');
 };
 
-async function buildWebpack (config) {
+async function buildWebpack(config) {
   return new Promise((resolve, reject) => {
     webpack(config, (err, stats) => {
       if (err || stats.hasErrors()) {
@@ -53,7 +53,7 @@ async function buildWebpack (config) {
   });
 }
 
-async function emptyDir (relPath) {
+async function emptyDir(relPath) {
   return new Promise((resolve, reject) => {
     const dir = path.resolve(__dirname, relPath);
     rimraf(dir, err => {
@@ -67,7 +67,7 @@ async function emptyDir (relPath) {
   });
 }
 
-async function copyFiles (relSource, relDest) {
+async function copyFiles(relSource, relDest) {
   return new Promise((resolve, reject) => {
     const source = path.resolve(__dirname, relSource);
     const dest = path.resolve(__dirname, relDest);
@@ -81,35 +81,59 @@ async function copyFiles (relSource, relDest) {
   });
 }
 
-async function install (relDir) {
+async function install(relDir) {
   return new Promise((resolve, reject) => {
     const prefix = path.resolve(__dirname, relDir);
-    npm.load({prefix, production: true}, err => {
-      if (err) {
-        return reject(err);
-      }
-
-      npm.commands.install([prefix], err => {
+    npm.load(
+      {
+        prefix,
+        buildFromSource: true,
+        production: true,
+        optional: false,
+        'package-lock': false
+      },
+      err => {
         if (err) {
-          reject(err);
-        } else {
-          resolve();
+          return reject(err);
         }
-      });
-    });
+
+        npm.commands.install([prefix], err => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      }
+    );
   });
 }
 
-function generatePackageJson (relBasePkg, relAppPkg, relOutPkg) {
+function generatePackageJson(relBasePkg, relOutPkg) {
   // Read package.json's
   const basePath = path.resolve(__dirname, relBasePkg);
-  const appPath = path.resolve(__dirname, relAppPkg);
   const outPath = path.resolve(__dirname, relOutPkg);
 
   const basePkg = JSON.parse(fs.readFileSync(basePath));
-  const appPkg = JSON.parse(fs.readFileSync(appPath));
 
-  appPkg.dependencies = {};
+  const appPkg = {
+    name: 'insomnia',
+    version: basePkg.app.version,
+    productName: basePkg.app.productName,
+    longName: basePkg.app.longName,
+    description: basePkg.description,
+    license: basePkg.license,
+    homepage: basePkg.homepage,
+    author: basePkg.author,
+    main: 'main.min.js',
+    dependencies: {}
+  };
+
+  for (const key of Object.keys(appPkg)) {
+    if (key === undefined) {
+      throw new Error(`[build] missing "app.${key}" from package.json`);
+    }
+  }
 
   // Figure out which dependencies to pack
   const allDependencies = Object.keys(basePkg.dependencies);
@@ -125,7 +149,7 @@ function generatePackageJson (relBasePkg, relAppPkg, relOutPkg) {
       throw new Error(`Failed to find packed dep "${name}" in dependencies`);
     }
     appPkg.dependencies[name] = version;
-    console.log(`[build] Setting packed dep ${name}`);
+    console.log(`[build] Adding native Node dep ${name}`);
   }
 
   fs.writeFileSync(outPath, JSON.stringify(appPkg, null, 2));

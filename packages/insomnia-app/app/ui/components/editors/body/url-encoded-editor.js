@@ -1,28 +1,11 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import KeyValueEditor from '../../key-value-editor/editor';
-import {trackEvent} from '../../../../common/analytics';
 
 @autobind
 class UrlEncodedEditor extends PureComponent {
-  _handleTrackToggle (pair) {
-    trackEvent(
-      'Url Encoded Editor',
-      'Toggle',
-      pair.disabled ? 'Disable' : 'Enable'
-    );
-  }
-
-  _handleTrackCreate () {
-    trackEvent('Url Encoded Editor', 'Create');
-  }
-
-  _handleTrackDelete () {
-    trackEvent('Url Encoded Editor', 'Delete');
-  }
-
-  render () {
+  render() {
     const {
       parameters,
       onChange,
@@ -43,9 +26,6 @@ class UrlEncodedEditor extends PureComponent {
             handleRender={handleRender}
             handleGetRenderContext={handleGetRenderContext}
             nunjucksPowerUserMode={nunjucksPowerUserMode}
-            onToggleDisable={this._handleTrackToggle}
-            onCreate={this._handleTrackCreate}
-            onDelete={this._handleTrackDelete}
             pairs={parameters}
           />
         </div>

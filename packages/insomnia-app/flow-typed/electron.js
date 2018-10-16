@@ -1,3 +1,5 @@
+// @flow
+
 declare module 'electron' {
   declare module.exports: {
     remote: {
@@ -21,5 +23,5 @@ declare module 'electron' {
     clipboard: Object,
     screen: Object,
     autoUpdater: Object
-  }
+  };
 }

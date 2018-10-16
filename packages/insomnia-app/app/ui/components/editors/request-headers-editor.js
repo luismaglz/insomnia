@@ -1,9 +1,8 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import KeyValueEditor from '../key-value-editor/editor';
 import CodeEditor from '../codemirror/code-editor';
-import {trackEvent} from '../../../common/analytics';
 import allHeaderNames from '../../../datasets/header-names';
 import allCharsets from '../../../datasets/charsets';
 import allMimeTypes from '../../../datasets/content-types';
@@ -11,23 +10,11 @@ import allEncodings from '../../../datasets/encodings';
 
 @autobind
 class RequestHeadersEditor extends PureComponent {
-  _handleBulkUpdate (headersString) {
+  _handleBulkUpdate(headersString) {
     this.props.onChange(this._getHeadersFromString(headersString));
   }
 
-  _handleTrackToggle (pair) {
-    trackEvent('Headers Editor', 'Toggle', pair.disabled ? 'Disable' : 'Enable');
-  }
-
-  _handleTrackCreate () {
-    trackEvent('Headers Editor', 'Create');
-  }
-
-  _handleTrackDelete () {
-    trackEvent('Headers Editor', 'Delete');
-  }
-
-  _getHeadersFromString (headersString) {
+  _getHeadersFromString(headersString) {
     const headers = [];
     const rows = headersString.split(/\n+/);
 
@@ -41,14 +28,14 @@ class RequestHeadersEditor extends PureComponent {
         continue;
       }
 
-      headers.push({name, value});
+      headers.push({ name, value });
     }
 
     return headers;
   }
 
-  _getHeadersString () {
-    const {headers} = this.props;
+  _getHeadersString() {
+    const { headers } = this.props;
 
     let headersString = '';
 
@@ -69,7 +56,7 @@ class RequestHeadersEditor extends PureComponent {
     return headersString;
   }
 
-  _getCommonHeaderValues (pair) {
+  _getCommonHeaderValues(pair) {
     switch (pair.name.toLowerCase()) {
       case 'content-type':
       case 'accept':
@@ -83,11 +70,11 @@ class RequestHeadersEditor extends PureComponent {
     }
   }
 
-  _getCommonHeaderNames (pair) {
+  _getCommonHeaderNames(pair) {
     return allHeaderNames;
   }
 
-  render () {
+  render() {
     const {
       bulk,
       headers,
@@ -101,39 +88,36 @@ class RequestHeadersEditor extends PureComponent {
     } = this.props;
 
     return bulk ? (
-        <div className="tall">
-          <CodeEditor
-            getRenderContext={handleGetRenderContext}
-            render={handleRender}
+      <div className="tall">
+        <CodeEditor
+          getRenderContext={handleGetRenderContext}
+          render={handleRender}
+          nunjucksPowerUserMode={nunjucksPowerUserMode}
+          fontSize={editorFontSize}
+          indentSize={editorIndentSize}
+          lineWrapping={editorLineWrapping}
+          onChange={this._handleBulkUpdate}
+          defaultValue={this._getHeadersString()}
+        />
+      </div>
+    ) : (
+      <div className="pad-bottom scrollable-container">
+        <div className="scrollable">
+          <KeyValueEditor
+            sortable
+            namePlaceholder="Header"
+            valuePlaceholder="Value"
+            pairs={headers}
             nunjucksPowerUserMode={nunjucksPowerUserMode}
-            fontSize={editorFontSize}
-            indentSize={editorIndentSize}
-            lineWrapping={editorLineWrapping}
-            onChange={this._handleBulkUpdate}
-            defaultValue={this._getHeadersString()}
+            handleRender={handleRender}
+            handleGetRenderContext={handleGetRenderContext}
+            handleGetAutocompleteNameConstants={this._getCommonHeaderNames}
+            handleGetAutocompleteValueConstants={this._getCommonHeaderValues}
+            onChange={onChange}
           />
         </div>
-      ) : (
-        <div className="pad-bottom scrollable-container">
-          <div className="scrollable">
-            <KeyValueEditor
-              sortable
-              namePlaceholder="My-Header"
-              valuePlaceholder="Value"
-              pairs={headers}
-              nunjucksPowerUserMode={nunjucksPowerUserMode}
-              handleRender={handleRender}
-              handleGetRenderContext={handleGetRenderContext}
-              handleGetAutocompleteNameConstants={this._getCommonHeaderNames}
-              handleGetAutocompleteValueConstants={this._getCommonHeaderValues}
-              onToggleDisable={this._handleTrackToggle}
-              onCreate={this._handleTrackCreate}
-              onDelete={this._handleTrackDelete}
-              onChange={onChange}
-            />
-          </div>
-        </div>
-      );
+      </div>
+    );
   }
 }
 
@@ -146,10 +130,12 @@ RequestHeadersEditor.propTypes = {
   nunjucksPowerUserMode: PropTypes.bool.isRequired,
   handleRender: PropTypes.func.isRequired,
   handleGetRenderContext: PropTypes.func.isRequired,
-  headers: PropTypes.arrayOf(PropTypes.shape({
-    name: PropTypes.string.isRequired,
-    value: PropTypes.string.isRequired
-  })).isRequired
+  headers: PropTypes.arrayOf(
+    PropTypes.shape({
+      name: PropTypes.string.isRequired,
+      value: PropTypes.string.isRequired
+    })
+  ).isRequired
 };
 
 export default RequestHeadersEditor;

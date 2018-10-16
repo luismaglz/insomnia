@@ -1,5 +1,5 @@
 const xpath = require('xpath');
-const {DOMParser} = require('xmldom');
+const { DOMParser } = require('xmldom');
 
 /**
  * Query an XML blob with XPath
@@ -7,7 +7,7 @@ const {DOMParser} = require('xmldom');
  * @param query {string}
  * @returns {Array<{outer: string, inner: string}>}
  */
-module.exports.query = function (xml, query) {
+module.exports.query = function(xml, query) {
   const dom = new DOMParser().parseFromString(xml);
   let rawResults = [];
 
@@ -18,17 +18,26 @@ module.exports.query = function (xml, query) {
   }
 
   const results = [];
-  for (const result of rawResults || []) {
-    if (result.constructor.name === 'Attr') {
-      results.push({
-        outer: result.toString().trim(),
-        inner: result.nodeValue
-      });
-    } else if (result.constructor.name === 'Element') {
-      results.push({
-        outer: result.toString().trim(),
-        inner: result.childNodes.toString()
-      });
+
+  // Functions return plain strings
+  if (typeof rawResults === 'string') {
+    results.push({
+      outer: rawResults,
+      inner: rawResults
+    });
+  } else {
+    for (const result of rawResults || []) {
+      if (result.constructor.name === 'Attr') {
+        results.push({
+          outer: result.toString().trim(),
+          inner: result.nodeValue
+        });
+      } else if (result.constructor.name === 'Element') {
+        results.push({
+          outer: result.toString().trim(),
+          inner: result.childNodes.toString()
+        });
+      }
     }
   }
 

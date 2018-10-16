@@ -1,18 +1,49 @@
-import React, {PureComponent} from 'react';
-import PropTypes from 'prop-types';
+// @flow
+import * as React from 'react';
 import autobind from 'autobind-decorator';
 import classnames from 'classnames';
+import {
+  buildQueryStringFromParams,
+  joinUrlAndQueryString
+} from 'insomnia-url';
 import Button from '../base/button';
+import Highlight from '../base/highlight';
 import Modal from '../base/modal';
 import ModalHeader from '../base/modal-header';
 import ModalBody from '../base/modal-body';
 import MethodTag from '../tags/method-tag';
+import { fuzzyMatchAll } from '../../../common/misc';
+import type { BaseModel } from '../../../models';
 import * as models from '../../../models';
-import {fuzzyMatch} from '../../../common/misc';
+import type { RequestGroup } from '../../../models/request-group';
+import type { Request } from '../../../models/request';
+import type { Workspace } from '../../../models/workspace';
+
+type Props = {
+  handleSetActiveWorkspace: (id: string) => void,
+  activateRequest: (id: string) => void,
+  workspaceId: string,
+  activeRequestParentId: string,
+  workspaceChildren: Array<Request | RequestGroup>,
+  workspaces: Array<Workspace>
+};
+
+type State = {
+  searchString: string,
+  requestGroups: Array<RequestGroup>,
+  requests: Array<Request>,
+  workspaces: Array<Workspace>,
+  matchedRequests: Array<Request>,
+  matchedWorkspaces: Array<Workspace>,
+  activeIndex: number
+};
 
 @autobind
-class RequestSwitcherModal extends PureComponent {
-  constructor (props) {
+class RequestSwitcherModal extends React.PureComponent<Props, State> {
+  modal: ?Modal;
+  _input: ?HTMLInputElement;
+
+  constructor(props: Props) {
     super(props);
 
     this.state = {
@@ -26,7 +57,7 @@ class RequestSwitcherModal extends PureComponent {
     };
   }
 
-  _handleKeydown (e) {
+  _handleKeydown(e: KeyboardEvent) {
     const keyCode = e.keyCode;
 
     if (keyCode === 38 || (keyCode === 9 && e.shiftKey)) {
@@ -45,50 +76,52 @@ class RequestSwitcherModal extends PureComponent {
     e.preventDefault();
   }
 
-  _setModalRef (n) {
+  _setModalRef(n: ?Modal) {
     this.modal = n;
   }
 
-  _setInputRef (n) {
+  _setInputRef(n: ?HTMLInputElement) {
     this._input = n;
   }
 
-  _setActiveIndex (activeIndex) {
-    const maxIndex = this.state.matchedRequests.length + this.state.matchedWorkspaces.length;
+  _setActiveIndex(activeIndex: number) {
+    const maxIndex =
+      this.state.matchedRequests.length + this.state.matchedWorkspaces.length;
     if (activeIndex < 0) {
       activeIndex = this.state.matchedRequests.length - 1;
     } else if (activeIndex >= maxIndex) {
       activeIndex = 0;
     }
 
-    this.setState({activeIndex});
+    this.setState({ activeIndex });
   }
 
-  _activateCurrentIndex () {
-    const {
-      activeIndex,
-      matchedRequests,
-      matchedWorkspaces
-    } = this.state;
+  _activateCurrentIndex() {
+    const { activeIndex, matchedRequests, matchedWorkspaces } = this.state;
 
     if (activeIndex < matchedRequests.length) {
       // Activate the request if there is one
       const request = matchedRequests[activeIndex];
       this._activateRequest(request);
-    } else if (activeIndex < (matchedRequests.length + matchedWorkspaces.length)) {
+    } else if (
+      activeIndex <
+      matchedRequests.length + matchedWorkspaces.length
+    ) {
       // Activate the workspace if there is one
       const index = activeIndex - matchedRequests.length;
       const workspace = matchedWorkspaces[index];
-      this._activateWorkspace(workspace);
+      if (workspace) {
+        this._activateWorkspace(workspace);
+      }
     } else {
       // Create request if no match
       this._createRequestFromSearch();
     }
   }
 
-  async _createRequestFromSearch () {
-    const {activeRequestParentId} = this.props;
-    const {searchString} = this.state;
+  async _createRequestFromSearch() {
+    const { activeRequestParentId } = this.props;
+    const { searchString } = this.state;
 
     // Create the request if nothing matched
     const patch = {
@@ -100,64 +133,124 @@ class RequestSwitcherModal extends PureComponent {
     this._activateRequest(request);
   }
 
-  _activateWorkspace (workspace) {
-    if (!workspace) {
-      return;
-    }
-
+  _activateWorkspace(workspace: Workspace) {
     this.props.handleSetActiveWorkspace(workspace._id);
-    this.modal.hide();
+    this.modal && this.modal.hide();
   }
 
-  _activateRequest (request) {
+  _activateRequest(request: ?Request) {
     if (!request) {
       return;
     }
 
     this.props.activateRequest(request._id);
-    this.modal.hide();
+    this.modal && this.modal.hide();
   }
 
-  _handleChange (e) {
-    this._handleChangeValue(e.target.value);
+  _handleChange(e: SyntheticEvent<HTMLInputElement>) {
+    this._handleChangeValue(e.currentTarget.value);
   }
 
-  async _handleChangeValue (searchString) {
-    const {workspaceChildren, workspaces} = this.props;
-    const {workspaceId, activeRequestParentId} = this.props;
+  /** Return array of path segments for given request or folder */
+  _groupOf(requestOrRequestGroup: BaseModel): Array<string> {
+    const { workspaceChildren } = this.props;
+    const requestGroups = workspaceChildren.filter(
+      d => d.type === models.requestGroup.type
+    );
+    const matchedGroups = requestGroups.filter(
+      g => g._id === requestOrRequestGroup.parentId
+    );
+    const currentGroupName =
+      requestOrRequestGroup.type === models.requestGroup.type
+        ? `${(requestOrRequestGroup: any).name}`
+        : '';
 
-    // OPTIMIZATION: This only filters if we have a filter
-    let matchedRequests = workspaceChildren.filter(d => d.type === models.request.type);
-    if (searchString) {
-      matchedRequests = matchedRequests.filter(r => {
-        const name = r.name.toLowerCase();
-
-        // Fuzzy match searchString to name
-        const matchesName = fuzzyMatch(searchString, name);
-
-        // Match exact Id
-        const matchesId = r._id === searchString;
-
-        return matchesName || matchesId;
-      });
+    // It's the final parent
+    if (matchedGroups.length === 0) {
+      return [currentGroupName];
     }
 
-    matchedRequests = matchedRequests.sort((a, b) => {
-      if (a.parentId === b.parentId) {
-        // Sort Requests by name inside of the same parent
-        // TODO: Sort by quality of match (eg. start vs mid string, etc)
-        return a.name > b.name ? 1 : -1;
-      } else {
-        // Sort RequestGroups by relevance if Request isn't in same parent
-        if (a.parentId === activeRequestParentId) {
-          return -1;
-        } else if (b.parentId === activeRequestParentId) {
-          return 1;
+    // Still has more parents
+    if (currentGroupName) {
+      return [currentGroupName, ...this._groupOf(matchedGroups[0])];
+    }
+
+    // It's the child
+    return this._groupOf(matchedGroups[0]);
+  }
+
+  _isMatch(request: Request, searchStrings: string): number | null {
+    let finalUrl = request.url;
+    if (request.parameters) {
+      finalUrl = joinUrlAndQueryString(
+        finalUrl,
+        buildQueryStringFromParams(request.parameters)
+      );
+    }
+
+    const match = fuzzyMatchAll(
+      searchStrings,
+      [
+        request.name,
+        finalUrl,
+        request.method || '',
+        this._groupOf(request).join('/')
+      ],
+      { splitSpace: true }
+    );
+
+    // Match exact Id
+    const matchesId = request._id === searchStrings;
+
+    // _id match is the highest;
+    if (matchesId) {
+      return Infinity;
+    }
+
+    if (!match) {
+      return null;
+    }
+
+    return match.score;
+  }
+
+  async _handleChangeValue(searchString: string) {
+    const { workspaceChildren, workspaces } = this.props;
+    const { workspaceId, activeRequestParentId } = this.props;
+
+    // OPTIMIZATION: This only filters if we have a filter
+    let matchedRequests = workspaceChildren
+      .filter(d => d.type === models.request.type)
+      .sort((a, b) => {
+        if (a.parentId === b.parentId) {
+          // Sort Requests by name inside of the same parent
+          // TODO: Sort by quality of match (eg. start vs mid string, etc)
+          return a.name > b.name ? 1 : -1;
         } else {
-          return a.parentId > b.parentId ? -1 : 1;
+          // Sort RequestGroups by relevance if Request isn't in same parent
+          if (a.parentId === activeRequestParentId) {
+            return -1;
+          } else if (b.parentId === activeRequestParentId) {
+            return 1;
+          } else {
+            return a.parentId > b.parentId ? -1 : 1;
+          }
         }
-      }
-    }).slice(0, 20); // show 20 max
+      });
+
+    if (searchString) {
+      matchedRequests = matchedRequests
+        .map(r => ({
+          request: r,
+          score: this._isMatch((r: any), searchString)
+        }))
+        .filter(v => v.score !== null)
+        .sort((a, b) => (a.score || -Infinity) - (b.score || -Infinity))
+        .map(v => v.request);
+    }
+
+    // Show 20 max
+    matchedRequests = matchedRequests.slice(0, 20);
 
     const matchedWorkspaces = workspaces
       .filter(w => w._id !== workspaceId)
@@ -172,30 +265,34 @@ class RequestSwitcherModal extends PureComponent {
     this.setState({
       activeIndex,
       searchString,
-      matchedRequests,
-      matchedWorkspaces
+      matchedWorkspaces,
+
+      // Ugh. Force cast to make Flow happy
+      matchedRequests: ((matchedRequests: any): Array<Request>)
     });
   }
 
-  async show () {
+  async show() {
     await this._handleChangeValue('');
-    this.modal.show();
-    setTimeout(() => this._input.focus(), 100);
+    this.modal && this.modal.show();
+    setTimeout(() => {
+      this._input && this._input.focus();
+    }, 100);
   }
 
-  hide () {
-    this.modal.hide();
+  hide() {
+    this.modal && this.modal.hide();
   }
 
-  toggle () {
-    if (this.modal.isOpen()) {
+  toggle() {
+    if (this.modal && this.modal.isOpen()) {
       this.hide();
     } else {
       this.show();
     }
   }
 
-  render () {
+  render() {
     const {
       searchString,
       activeIndex,
@@ -203,20 +300,25 @@ class RequestSwitcherModal extends PureComponent {
       matchedWorkspaces
     } = this.state;
 
-    const {workspaceChildren} = this.props;
-    const requestGroups = workspaceChildren.filter(d => d.type === models.requestGroup.type);
+    const { workspaceChildren } = this.props;
+    const requestGroups = workspaceChildren.filter(
+      d => d.type === models.requestGroup.type
+    );
 
     return (
       <Modal ref={this._setModalRef} dontFocus tall>
         <ModalHeader hideCloseButton>
-          <div className="pull-right txt-sm pad-right">
-            <span className="monospace">tab</span> or
-            &nbsp;
-            <span className="monospace">↑ ↓</span> &nbsp;to navigate
-            &nbsp;&nbsp;&nbsp;
-            <span className="monospace">↵</span> &nbsp;to select
-            &nbsp;&nbsp;&nbsp;
-            <span className="monospace">esc</span> to dismiss
+          <div className="pull-right txt-sm pad-right tall">
+            <span className="vertically-center">
+              <div>
+                <span className="monospace">tab</span> or&nbsp;
+                <span className="monospace">↑↓</span> to
+                navigate&nbsp;&nbsp;&nbsp;&nbsp;
+                <span className="monospace">↵</span> &nbsp;to
+                select&nbsp;&nbsp;&nbsp;&nbsp;
+                <span className="monospace">esc</span> to dismiss
+              </div>
+            </span>
           </div>
           <div>Quick Switch</div>
         </ModalHeader>
@@ -225,7 +327,7 @@ class RequestSwitcherModal extends PureComponent {
             <div className="form-control form-control--outlined no-margin">
               <input
                 type="text"
-                placeholder="Search"
+                placeholder="Filter by name or folder"
                 ref={this._setInputRef}
                 value={searchString}
                 onChange={this._handleChange}
@@ -234,79 +336,89 @@ class RequestSwitcherModal extends PureComponent {
           </div>
           <ul>
             {matchedRequests.map((r, i) => {
-              const requestGroup = requestGroups.find(rg => rg._id === r.parentId);
+              const requestGroup = requestGroups.find(
+                rg => rg._id === r.parentId
+              );
               const buttonClasses = classnames(
-                'btn btn--super-compact wide text-left',
-                {focus: activeIndex === i}
+                'btn btn--expandable-small wide text-left pad-bottom',
+                { focus: activeIndex === i }
               );
 
               return (
                 <li key={r._id}>
-                  <Button onClick={this._activateRequest} value={r} className={buttonClasses}>
-                    {requestGroup && (
-                      <div className="pull-right faint italic">
-                        {requestGroup.name}
-                        &nbsp;&nbsp;
-                        <i className="fa fa-folder-o"/>
-                      </div>
-                    )}
-                    <MethodTag method={r.method}/>
-                    <strong>{r.name}</strong>
+                  <Button
+                    onClick={this._activateRequest}
+                    value={r}
+                    className={buttonClasses}>
+                    <div>
+                      {requestGroup ? (
+                        <div className="pull-right faint italic">
+                          <Highlight
+                            search={searchString}
+                            text={this._groupOf(r).join(' / ')}
+                          />
+                          &nbsp;&nbsp;
+                          <i className="fa fa-folder-o" />
+                        </div>
+                      ) : null}
+                      <Highlight search={searchString} text={(r: any).name} />
+                    </div>
+                    <div className="margin-left-xs faint">
+                      <MethodTag method={(r: any).method} />
+                      <Highlight search={searchString} text={(r: any).url} />
+                    </div>
                   </Button>
                 </li>
               );
             })}
 
-            {(matchedRequests.length > 0 && matchedWorkspaces.length > 0) && (
-              <li className="pad-left pad-right">
-                <hr/>
-              </li>
-            )}
+            {matchedRequests.length > 0 &&
+              matchedWorkspaces.length > 0 && (
+                <li className="pad-left pad-right">
+                  <hr />
+                </li>
+              )}
 
             {matchedWorkspaces.map((w, i) => {
               const buttonClasses = classnames(
                 'btn btn--super-compact wide text-left',
-                {focus: (activeIndex - matchedRequests.length) === i}
+                { focus: activeIndex - matchedRequests.length === i }
               );
 
               return (
                 <li key={w._id}>
-                  <Button onClick={this._activateWorkspace} value={w} className={buttonClasses}>
-                    <i className="fa fa-random"/>
-                    &nbsp;&nbsp;&nbsp;
-                    Switch to <strong>{w.name}</strong>
+                  <Button
+                    onClick={this._activateWorkspace}
+                    value={w}
+                    className={buttonClasses}>
+                    <i className="fa fa-random" />
+                    &nbsp;&nbsp;&nbsp; Switch to{' '}
+                    <strong>{(w: any).name}</strong>
                   </Button>
                 </li>
               );
             })}
           </ul>
 
-          {(matchedRequests.length === 0 && matchedWorkspaces.length === 0) && (
-            <div className="text-center">
-              <p>
-                No matches found for <strong>{searchString}</strong>
-              </p>
+          {matchedRequests.length === 0 &&
+            matchedWorkspaces.length === 0 && (
+              <div className="text-center">
+                <p>
+                  No matches found for <strong>{searchString}</strong>
+                </p>
 
-              <button className="btn btn--outlined btn--compact"
-                      disabled={!searchString}
-                      onClick={this._activateCurrentIndex}>
-                Create a request named {searchString}
-              </button>
-            </div>
-          )}
+                <button
+                  className="btn btn--outlined btn--compact"
+                  disabled={!searchString}
+                  onClick={this._activateCurrentIndex}>
+                  Create a request named {searchString}
+                </button>
+              </div>
+            )}
         </ModalBody>
       </Modal>
     );
   }
 }
-
-RequestSwitcherModal.propTypes = {
-  handleSetActiveWorkspace: PropTypes.func.isRequired,
-  activateRequest: PropTypes.func.isRequired,
-  workspaceId: PropTypes.string.isRequired,
-  activeRequestParentId: PropTypes.string.isRequired,
-  workspaceChildren: PropTypes.arrayOf(PropTypes.object).isRequired,
-  workspaces: PropTypes.arrayOf(PropTypes.object).isRequired
-};
 
 export default RequestSwitcherModal;

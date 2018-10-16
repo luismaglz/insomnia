@@ -1,19 +1,20 @@
 // @flow
-import * as _stats from './stats';
-import * as _settings from './settings';
-import * as _workspace from './workspace';
-import * as _workspaceMeta from './workspace-meta';
-import * as _environment from './environment';
+import * as _clientCertificate from './client-certificate';
 import * as _cookieJar from './cookie-jar';
+import * as _environment from './environment';
+import * as _oAuth2Token from './o-auth-2-token';
+import * as _pluginData from './plugin-data';
+import * as _request from './request';
 import * as _requestGroup from './request-group';
 import * as _requestGroupMeta from './request-group-meta';
-import * as _request from './request';
-import * as _requestVersion from './request-version';
 import * as _requestMeta from './request-meta';
+import * as _requestVersion from './request-version';
 import * as _response from './response';
-import * as _oAuth2Token from './o-auth-2-token';
-import * as _clientCertificate from './client-certificate';
-import {generateId} from '../common/misc';
+import * as _settings from './settings';
+import * as _stats from './stats';
+import * as _workspace from './workspace';
+import * as _workspaceMeta from './workspace-meta';
+import { generateId } from '../common/misc';
 
 export type BaseModel = {
   _id: string,
@@ -21,25 +22,26 @@ export type BaseModel = {
   parentId: string,
   modified: number,
   created: number
-}
+};
 
 // Reference to each model
-export const stats = _stats;
-export const settings = _settings;
-export const workspace = _workspace;
-export const workspaceMeta = _workspaceMeta;
-export const environment = _environment;
+export const clientCertificate = _clientCertificate;
 export const cookieJar = _cookieJar;
+export const environment = _environment;
+export const oAuth2Token = _oAuth2Token;
+export const pluginData = _pluginData;
+export const request = _request;
 export const requestGroup = _requestGroup;
 export const requestGroupMeta = _requestGroupMeta;
-export const request = _request;
-export const requestVersion = _requestVersion;
 export const requestMeta = _requestMeta;
+export const requestVersion = _requestVersion;
 export const response = _response;
-export const oAuth2Token = _oAuth2Token;
-export const clientCertificate = _clientCertificate;
+export const settings = _settings;
+export const stats = _stats;
+export const workspace = _workspace;
+export const workspaceMeta = _workspaceMeta;
 
-export function all () {
+export function all() {
   return [
     stats,
     settings,
@@ -54,24 +56,25 @@ export function all () {
     requestMeta,
     response,
     oAuth2Token,
-    clientCertificate
+    clientCertificate,
+    pluginData
   ];
 }
 
-export function types () {
+export function types() {
   return all().map(model => model.type);
 }
 
-export function getModel (type: string): Object | null {
+export function getModel(type: string): Object | null {
   return all().find(m => m.type === type) || null;
 }
 
-export function canDuplicate (type: string) {
+export function canDuplicate(type: string) {
   const model = getModel(type);
   return model ? model.canDuplicate : false;
 }
 
-export function getModelName (type: string, count: number = 1) {
+export function getModelName(type: string, count: number = 1) {
   const model = getModel(type);
   if (!model) {
     return 'Unknown';
@@ -85,25 +88,33 @@ export function getModelName (type: string, count: number = 1) {
   }
 }
 
-export async function initModel<T: BaseModel> (
+export async function initModel<T: BaseModel>(
   type: string,
   ...sources: Array<Object>
 ): Promise<T> {
   const model = getModel(type);
 
   if (!model) {
-    const choices = all().map(m => m.type).join(', ');
-    throw new Error(`Tried to init invalid model "${type}". Choices are ${choices}`);
+    const choices = all()
+      .map(m => m.type)
+      .join(', ');
+    throw new Error(
+      `Tried to init invalid model "${type}". Choices are ${choices}`
+    );
   }
 
   // Define global default fields
-  const objectDefaults = Object.assign({}, {
-    _id: null,
-    type: type,
-    parentId: null,
-    modified: Date.now(),
-    created: Date.now()
-  }, model.init());
+  const objectDefaults = Object.assign(
+    {},
+    {
+      _id: null,
+      type: type,
+      parentId: null,
+      modified: Date.now(),
+      created: Date.now()
+    },
+    model.init()
+  );
 
   const fullObject = Object.assign({}, objectDefaults, ...sources);
 

@@ -1,20 +1,20 @@
-import React, {PureComponent} from 'react';
+import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
 import ReactDOM from 'react-dom';
-import {DragSource, DropTarget} from 'react-dnd';
+import { DragSource, DropTarget } from 'react-dnd';
 import classnames from 'classnames';
 import RequestActionsDropdown from '../dropdowns/request-actions-dropdown';
 import Editable from '../base/editable';
+import Highlight from '../base/highlight';
 import MethodTag from '../tags/method-tag';
 import * as models from '../../../models';
-import {trackEvent} from '../../../common/analytics';
-import {showModal} from '../modals/index';
+import { showModal } from '../modals/index';
 import RequestSettingsModal from '../modals/request-settings-modal';
 
 @autobind
 class SidebarRequestRow extends PureComponent {
-  constructor (props) {
+  constructor(props) {
     super(props);
     this.state = {
       dragDirection: 0,
@@ -22,54 +22,52 @@ class SidebarRequestRow extends PureComponent {
     };
   }
 
-  _setRequestActionsDropdownRef (n) {
+  _setRequestActionsDropdownRef(n) {
     this._requestActionsDropdown = n;
   }
 
-  _handleShowRequestActions (e) {
+  _handleShowRequestActions(e) {
     e.preventDefault();
     this._requestActionsDropdown.show();
   }
 
-  _handleEditStart () {
-    trackEvent('Request', 'Rename', 'In Place');
-    this.setState({isEditing: true});
+  _handleEditStart() {
+    this.setState({ isEditing: true });
   }
 
-  _handleRequestUpdateName (name) {
-    models.request.update(this.props.request, {name});
-    this.setState({isEditing: false});
+  _handleRequestUpdateName(name) {
+    models.request.update(this.props.request, { name });
+    this.setState({ isEditing: false });
   }
 
-  _handleRequestCreateFromEmpty () {
+  _handleRequestCreateFromEmpty() {
     const parentId = this.props.requestGroup._id;
     this.props.requestCreate(parentId);
-    trackEvent('Request', 'Create', 'Empty Folder');
   }
 
-  _handleRequestActivate () {
-    const {isActive, request, handleActivateRequest} = this.props;
+  _handleRequestActivate() {
+    const { isActive, request, handleActivateRequest } = this.props;
 
     if (isActive) {
       return;
     }
 
     handleActivateRequest(request._id);
-    trackEvent('Request', 'Activate', 'Sidebar');
   }
 
-  _handleShowRequestSettings () {
-    showModal(RequestSettingsModal, {request: this.props.request});
+  _handleShowRequestSettings() {
+    showModal(RequestSettingsModal, { request: this.props.request });
   }
 
-  setDragDirection (dragDirection) {
+  setDragDirection(dragDirection) {
     if (dragDirection !== this.state.dragDirection) {
-      this.setState({dragDirection});
+      this.setState({ dragDirection });
     }
   }
 
-  render () {
+  render() {
     const {
+      filter,
       handleDuplicateRequest,
       handleGenerateCode,
       handleCopyAsCurl,
@@ -82,7 +80,7 @@ class SidebarRequestRow extends PureComponent {
       isActive
     } = this.props;
 
-    const {dragDirection} = this.state;
+    const { dragDirection } = this.state;
 
     let node;
 
@@ -96,7 +94,9 @@ class SidebarRequestRow extends PureComponent {
       node = (
         <li className={classes}>
           <div className="sidebar__item">
-            <button className="sidebar__clickable" onClick={this._handleRequestCreateFromEmpty}>
+            <button
+              className="sidebar__clickable"
+              onClick={this._handleRequestCreateFromEmpty}>
               <em className="faded">click to add first request...</em>
             </button>
           </div>
@@ -105,20 +105,25 @@ class SidebarRequestRow extends PureComponent {
     } else {
       node = (
         <li className={classes}>
-          <div className={classnames('sidebar__item', 'sidebar__item--request', {
-            'sidebar__item--active': isActive
-          })}>
-            <button className="wide"
-                    onClick={this._handleRequestActivate}
-                    onContextMenu={this._handleShowRequestActions}>
+          <div
+            className={classnames('sidebar__item', 'sidebar__item--request', {
+              'sidebar__item--active': isActive
+            })}>
+            <button
+              className="wide"
+              onClick={this._handleRequestActivate}
+              onContextMenu={this._handleShowRequestActions}>
               <div className="sidebar__clickable">
-                <MethodTag method={request.method}/>
-                <div>
-                  <Editable value={request.name}
-                            className="inline-block"
-                            onEditStart={this._handleEditStart}
-                            onSubmit={this._handleRequestUpdateName}/>
-                </div>
+                <MethodTag method={request.method} />
+                <Editable
+                  value={request.name}
+                  className="inline-block"
+                  onEditStart={this._handleEditStart}
+                  onSubmit={this._handleRequestUpdateName}
+                  renderReadView={(value, props) => (
+                    <Highlight search={filter} text={value} {...props} />
+                  )}
+                />
               </div>
             </button>
             <div className="sidebar__actions">
@@ -156,6 +161,7 @@ SidebarRequestRow.propTypes = {
   moveDoc: PropTypes.func.isRequired,
 
   // Other
+  filter: PropTypes.string.isRequired,
   isActive: PropTypes.bool.isRequired,
 
   // React DnD
@@ -170,13 +176,12 @@ SidebarRequestRow.propTypes = {
 };
 
 const dragSource = {
-  beginDrag (props) {
-    trackEvent('Request', 'Drag', 'Begin');
-    return {request: props.request};
+  beginDrag(props) {
+    return { request: props.request };
   }
 };
 
-function isAbove (monitor, component) {
+function isAbove(monitor, component) {
   const hoveredNode = ReactDOM.findDOMNode(component);
 
   const hoveredTop = hoveredNode.getBoundingClientRect().top;
@@ -186,10 +191,13 @@ function isAbove (monitor, component) {
 }
 
 const dragTarget = {
-  drop (props, monitor, component) {
-    const movingDoc = monitor.getItem().requestGroup || monitor.getItem().request;
+  drop(props, monitor, component) {
+    const movingDoc =
+      monitor.getItem().requestGroup || monitor.getItem().request;
 
-    const parentId = props.requestGroup ? props.requestGroup._id : props.request.parentId;
+    const parentId = props.requestGroup
+      ? props.requestGroup._id
+      : props.request.parentId;
     const targetId = props.request ? props.request._id : null;
 
     if (isAbove(monitor, component)) {
@@ -198,7 +206,7 @@ const dragTarget = {
       props.moveDoc(movingDoc, parentId, targetId, -1);
     }
   },
-  hover (props, monitor, component) {
+  hover(props, monitor, component) {
     if (isAbove(monitor, component)) {
       component.decoratedComponentInstance.setDragDirection(1);
     } else {
@@ -207,19 +215,23 @@ const dragTarget = {
   }
 };
 
-function sourceCollect (connect, monitor) {
+function sourceCollect(connect, monitor) {
   return {
     connectDragSource: connect.dragSource(),
     isDragging: monitor.isDragging()
   };
 }
 
-function targetCollect (connect, monitor) {
+function targetCollect(connect, monitor) {
   return {
     connectDropTarget: connect.dropTarget(),
     isDraggingOver: monitor.isOver()
   };
 }
 
-const source = DragSource('SIDEBAR_REQUEST_ROW', dragSource, sourceCollect)(SidebarRequestRow);
-export default DropTarget('SIDEBAR_REQUEST_ROW', dragTarget, targetCollect)(source);
+const source = DragSource('SIDEBAR_REQUEST_ROW', dragSource, sourceCollect)(
+  SidebarRequestRow
+);
+export default DropTarget('SIDEBAR_REQUEST_ROW', dragTarget, targetCollect)(
+  source
+);

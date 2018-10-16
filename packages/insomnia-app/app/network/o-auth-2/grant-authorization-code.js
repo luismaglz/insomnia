@@ -1,14 +1,17 @@
 // @flow
-import {parse as urlParse} from 'url';
+import { parse as urlParse } from 'url';
 import * as c from './constants';
-import {buildQueryStringFromParams, joinUrlAndQueryString} from 'insomnia-url';
-import {authorizeUserInWindow, responseToObject} from './misc';
-import {escapeRegex} from '../../common/misc';
+import {
+  buildQueryStringFromParams,
+  joinUrlAndQueryString
+} from 'insomnia-url';
+import { authorizeUserInWindow, responseToObject } from './misc';
+import { escapeRegex } from '../../common/misc';
 import * as models from '../../models/index';
-import {sendWithSettings} from '../network';
-import {getBasicAuthHeader} from '../basic-auth/get-header';
+import { sendWithSettings } from '../network';
+import { getBasicAuthHeader } from '../basic-auth/get-header';
 
-export default async function (
+export default async function(
   requestId: string,
   authorizeUrl: string,
   accessTokenUrl: string,
@@ -35,9 +38,15 @@ export default async function (
     state
   );
 
-  // TODO: Handle error
+  // Handle the error
+  if (authorizeResults[c.P_ERROR]) {
+    const code = authorizeResults[c.P_ERROR];
+    const msg = authorizeResults[c.P_ERROR_DESCRIPTION];
+    const uri = authorizeResults[c.P_ERROR_URI];
+    throw new Error(`OAuth 2.0 Error ${code}\n\n${msg}\n\n${uri}`);
+  }
 
-  const tokenResults = await _getToken(
+  return _getToken(
     requestId,
     accessTokenUrl,
     credentialsInBody,
@@ -47,31 +56,40 @@ export default async function (
     redirectUri,
     state
   );
-
-  return tokenResults;
 }
 
-async function _authorize (url, clientId, redirectUri = '', scope = '', state = '') {
+async function _authorize(
+  url,
+  clientId,
+  redirectUri = '',
+  scope = '',
+  state = ''
+) {
   const params = [
-    {name: c.P_RESPONSE_TYPE, value: c.RESPONSE_TYPE_CODE},
-    {name: c.P_CLIENT_ID, value: clientId}
+    { name: c.P_RESPONSE_TYPE, value: c.RESPONSE_TYPE_CODE },
+    { name: c.P_CLIENT_ID, value: clientId }
   ];
 
   // Add optional params
-  redirectUri && params.push({name: c.P_REDIRECT_URI, value: redirectUri});
-  scope && params.push({name: c.P_SCOPE, value: scope});
-  state && params.push({name: c.P_STATE, value: state});
+  redirectUri && params.push({ name: c.P_REDIRECT_URI, value: redirectUri });
+  scope && params.push({ name: c.P_SCOPE, value: scope });
+  state && params.push({ name: c.P_STATE, value: state });
 
   // Add query params to URL
   const qs = buildQueryStringFromParams(params);
   const finalUrl = joinUrlAndQueryString(url, qs);
-  const regex = new RegExp(`${escapeRegex(redirectUri)}.*(code=|error=)`, 'i');
+  const successRegex = new RegExp(`${escapeRegex(redirectUri)}.*(code=)`, 'i');
+  const failureRegex = new RegExp(`${escapeRegex(redirectUri)}.*(error=)`, 'i');
 
-  const redirectedTo = await authorizeUserInWindow(finalUrl, regex);
+  const redirectedTo = await authorizeUserInWindow(
+    finalUrl,
+    successRegex,
+    failureRegex
+  );
 
   console.log('[oauth2] Detected redirect ' + redirectedTo);
 
-  const {query} = urlParse(redirectedTo);
+  const { query } = urlParse(redirectedTo);
   return responseToObject(query, [
     c.P_CODE,
     c.P_STATE,
@@ -81,7 +99,7 @@ async function _authorize (url, clientId, redirectUri = '', scope = '', state = 
   ]);
 }
 
-async function _getToken (
+async function _getToken(
   requestId: string,
   url: string,
   credentialsInBody: boolean,
@@ -92,41 +110,52 @@ async function _getToken (
   state: string = ''
 ): Promise<Object> {
   const params = [
-    {name: c.P_GRANT_TYPE, value: c.GRANT_TYPE_AUTHORIZATION_CODE},
-    {name: c.P_CODE, value: code}
+    { name: c.P_GRANT_TYPE, value: c.GRANT_TYPE_AUTHORIZATION_CODE },
+    { name: c.P_CODE, value: code }
   ];
 
   // Add optional params
-  redirectUri && params.push({name: c.P_REDIRECT_URI, value: redirectUri});
-  state && params.push({name: c.P_STATE, value: state});
+  redirectUri && params.push({ name: c.P_REDIRECT_URI, value: redirectUri });
+  state && params.push({ name: c.P_STATE, value: state });
 
   const headers = [
-    {name: 'Content-Type', value: 'application/x-www-form-urlencoded'},
-    {name: 'Accept', value: 'application/x-www-form-urlencoded, application/json'}
+    { name: 'Content-Type', value: 'application/x-www-form-urlencoded' },
+    {
+      name: 'Accept',
+      value: 'application/x-www-form-urlencoded, application/json'
+    }
   ];
 
   if (credentialsInBody) {
-    params.push({name: c.P_CLIENT_ID, value: clientId});
-    params.push({name: c.P_CLIENT_SECRET, value: clientSecret});
+    params.push({ name: c.P_CLIENT_ID, value: clientId });
+    params.push({ name: c.P_CLIENT_SECRET, value: clientSecret });
   } else {
     headers.push(getBasicAuthHeader(clientId, clientSecret));
   }
 
-  const response = await sendWithSettings(requestId, {
+  const responsePatch = await sendWithSettings(requestId, {
     headers,
     url,
     method: 'POST',
     body: models.request.newBodyFormUrlEncoded(params)
   });
 
+  const response = await models.response.create(responsePatch);
+
   const bodyBuffer = models.response.getBodyBuffer(response);
   if (!bodyBuffer) {
-    throw new Error(`[oauth2] No body returned from ${url}`);
+    return {
+      [c.X_ERROR]: `No body returned from ${url}`,
+      [c.X_RESPONSE_ID]: response._id
+    };
   }
 
   const statusCode = response.statusCode || 0;
   if (statusCode < 200 || statusCode >= 300) {
-    throw new Error(`[oauth2] Failed to fetch token url=${url} status=${statusCode}`);
+    return {
+      [c.X_ERROR]: `Failed to fetch token url=${url} status=${statusCode}`,
+      [c.X_RESPONSE_ID]: response._id
+    };
   }
 
   const results = responseToObject(bodyBuffer.toString('utf8'), [
@@ -139,6 +168,8 @@ async function _getToken (
     c.P_ERROR_URI,
     c.P_ERROR_DESCRIPTION
   ]);
+
+  results[c.X_RESPONSE_ID] = response._id;
 
   return results;
 }
