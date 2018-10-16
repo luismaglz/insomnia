@@ -26,6 +26,10 @@ matrix:
         - CSC_KEY_PASSWORD=$MAC_CSC_KEY_PASSWORD
       before_deploy:
         - npm run app-package
+    - os: windows
+      before_deploy:
+        - npm run app-package
+
 
 cache:
   directories:
