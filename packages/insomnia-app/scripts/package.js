@@ -5,6 +5,8 @@ const fs = require('fs');
 const buildTask = require('./build');
 
 const PLATFORM_MAP = {
+  darwin: 'mac',
+  linux: 'linux',
   win32: 'win'
 };
 
