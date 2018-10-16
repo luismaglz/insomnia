@@ -53,5 +53,3 @@ deploy:
     secure: 17155cc2a9a5c6a7b3857307af5f5d49c1ad9904
   artifact: dist
   prerelease: true
-  on:
-    appveyor_repo_tag: true
