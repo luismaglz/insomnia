@@ -53,5 +53,3 @@ deploy:
     - packages/insomnia-app/dist/**/*.snap
     - packages/insomnia-app/dist/**/*.AppImage
     - packages/insomnia-app/dist/**/*.tar.gz
-  on:
-    tags: true
