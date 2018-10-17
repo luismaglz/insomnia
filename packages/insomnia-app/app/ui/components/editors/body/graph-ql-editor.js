@@ -34,7 +34,7 @@ import Tooltip from '../../tooltip';
 
 type GraphQLBody = {
   query: string,
-  variables?: Object,
+  variables?: Object | string,
   operationName?: string
 };
 
