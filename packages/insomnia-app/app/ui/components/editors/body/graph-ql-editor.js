@@ -34,7 +34,7 @@ import Tooltip from '../../tooltip';
 
 type GraphQLBody = {
   query: string,
-  variables?: Object | string,
+  variables?: string,
   operationName?: string
 };
 
@@ -352,7 +352,7 @@ class GraphQLEditor extends React.PureComponent<Props, State> {
 
   _handleBodyChange(
     query: string,
-    variables: ?Object,
+    variables: ?string,
     operationName: ?string
   ): void {
     try {
@@ -364,7 +364,7 @@ class GraphQLEditor extends React.PureComponent<Props, State> {
     const body: GraphQLBody = { query };
 
     if (variables) {
-      body.variables = JSON.stringify(variables);
+      body.variables = variables;
     }
 
     if (operationName) {
@@ -387,10 +387,9 @@ class GraphQLEditor extends React.PureComponent<Props, State> {
 
   _handleVariablesChange(variables: string): void {
     try {
-      const variablesObj = JSON.parse(variables || 'null');
       this._handleBodyChange(
         this.state.body.query,
-        variablesObj,
+        variables || 'null',
         this.state.body.operationName
       );
     } catch (err) {
