@@ -364,7 +364,7 @@ class GraphQLEditor extends React.PureComponent<Props, State> {
     const body: GraphQLBody = { query };
 
     if (variables) {
-      body.variables = variables;
+      body.variables = JSON.stringify(variables);
     }
 
     if (operationName) {
