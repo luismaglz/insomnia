@@ -1,12 +1,7 @@
 // @flow
 import * as React from 'react';
 import autobind from 'autobind-decorator';
-import {
-  Dropdown,
-  DropdownHint,
-  DropdownButton,
-  DropdownItem
-} from '../base/dropdown';
+import { Dropdown, DropdownHint, DropdownButton, DropdownItem } from '../base/dropdown';
 import { DEBOUNCE_MILLIS } from '../../../common/constants';
 import KeydownBinder from '../keydown-binder';
 import * as hotkeys from '../../../common/hotkeys';
@@ -15,7 +10,7 @@ type Props = {
   onChange: string => void,
   requestCreate: () => void,
   requestGroupCreate: () => void,
-  filter: string
+  filter: string,
 };
 
 @autobind
@@ -72,9 +67,7 @@ class SidebarFilter extends React.PureComponent<Props> {
               onChange={this._handleOnChange}
             />
             {filter && (
-              <button
-                className="form-control__right"
-                onClick={this._handleClearFilter}>
+              <button className="form-control__right" onClick={this._handleClearFilter}>
                 <i className="fa fa-times-circle" />
               </button>
             )}

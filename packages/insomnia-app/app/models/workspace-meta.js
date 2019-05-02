@@ -4,7 +4,7 @@ import * as db from '../common/database';
 import {
   DEFAULT_SIDEBAR_WIDTH,
   DEFAULT_PANE_WIDTH,
-  DEFAULT_PANE_HEIGHT
+  DEFAULT_PANE_HEIGHT,
 } from '../common/constants';
 
 export const name = 'Workspace Meta';
@@ -20,7 +20,7 @@ type BaseWorkspaceMeta = {
   sidebarWidth: number,
   paneWidth: number,
   paneHeight: number,
-  hasSeen: boolean
+  hasSeen: boolean,
 };
 
 export type WorkspaceMeta = BaseWorkspaceMeta & BaseModel;
@@ -35,7 +35,7 @@ export function init(): BaseWorkspaceMeta {
     sidebarWidth: DEFAULT_SIDEBAR_WIDTH,
     paneWidth: DEFAULT_PANE_WIDTH,
     paneHeight: DEFAULT_PANE_HEIGHT,
-    hasSeen: true
+    hasSeen: true,
   };
 }
 
@@ -45,30 +45,21 @@ export function migrate(doc: WorkspaceMeta): WorkspaceMeta {
 
 export function create(patch: Object = {}): Promise<WorkspaceMeta> {
   if (!patch.parentId) {
-    throw new Error(
-      `New WorkspaceMeta missing parentId ${JSON.stringify(patch)}`
-    );
+    throw new Error(`New WorkspaceMeta missing parentId ${JSON.stringify(patch)}`);
   }
 
   return db.docCreate(type, patch);
 }
 
-export function update(
-  workspaceMeta: WorkspaceMeta,
-  patch: Object = {}
-): Promise<WorkspaceMeta> {
+export function update(workspaceMeta: WorkspaceMeta, patch: Object = {}): Promise<WorkspaceMeta> {
   return db.docUpdate(workspaceMeta, patch);
 }
 
-export async function getByParentId(
-  parentId: string
-): Promise<WorkspaceMeta | null> {
+export async function getByParentId(parentId: string): Promise<WorkspaceMeta | null> {
   return db.getWhere(type, { parentId });
 }
 
-export async function getOrCreateByParentId(
-  parentId: string
-): Promise<WorkspaceMeta> {
+export async function getOrCreateByParentId(parentId: string): Promise<WorkspaceMeta> {
   const doc = await getByParentId(parentId);
   return doc || this.create({ parentId });
 }

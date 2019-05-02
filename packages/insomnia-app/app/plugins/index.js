@@ -14,27 +14,27 @@ export type Plugin = {
   description: string,
   version: string,
   directory: string,
-  module: *
+  module: *,
 };
 
 export type TemplateTag = {
   plugin: Plugin,
-  templateTag: PluginTemplateTag
+  templateTag: PluginTemplateTag,
 };
 
 export type RequestHook = {
   plugin: Plugin,
-  hook: Function
+  hook: Function,
 };
 
 export type ResponseHook = {
   plugin: Plugin,
-  hook: Function
+  hook: Function,
 };
 
 export type Theme = {
   plugin: Plugin,
-  theme: PluginTheme
+  theme: PluginTheme,
 };
 
 const CORE_PLUGINS = [
@@ -48,7 +48,7 @@ const CORE_PLUGINS = [
   'insomnia-plugin-response',
   'insomnia-plugin-jsonpath',
   'insomnia-plugin-cookie-jar',
-  'insomnia-plugin-core-themes'
+  'insomnia-plugin-core-themes',
 ];
 
 let plugins: ?Array<Plugin> = null;
@@ -102,26 +102,20 @@ async function _traversePluginPath(pluginMap: Object, allPaths: Array<string>) {
         // Delete require cache entry and re-require
         const module = global.require(modulePath);
 
-        pluginMap[pluginJson.name] = _initPlugin(
-          pluginJson || {},
-          module,
-          modulePath
-        );
+        pluginMap[pluginJson.name] = _initPlugin(pluginJson || {}, module, modulePath);
         console.log(`[plugin] Loaded ${modulePath}`);
       } catch (err) {
         showError({
           title: 'Plugin Error',
           message: 'Failed to load plugin ' + filename,
-          error: err
+          error: err,
         });
       }
     }
   }
 }
 
-export async function getPlugins(
-  force: boolean = false
-): Promise<Array<Plugin>> {
+export async function getPlugins(force: boolean = false): Promise<Array<Plugin>> {
   if (force) {
     plugins = null;
   }
@@ -166,10 +160,7 @@ export async function getTemplateTags(): Promise<Array<TemplateTag>> {
   let extensions = [];
   for (const plugin of await getPlugins()) {
     const templateTags = plugin.module.templateTags || [];
-    extensions = [
-      ...extensions,
-      ...templateTags.map(tt => ({ plugin, templateTag: tt }))
-    ];
+    extensions = [...extensions, ...templateTags.map(tt => ({ plugin, templateTag: tt }))];
   }
 
   return extensions;
@@ -179,10 +170,7 @@ export async function getRequestHooks(): Promise<Array<RequestHook>> {
   let functions = [];
   for (const plugin of await getPlugins()) {
     const moreFunctions = plugin.module.requestHooks || [];
-    functions = [
-      ...functions,
-      ...moreFunctions.map(hook => ({ plugin, hook }))
-    ];
+    functions = [...functions, ...moreFunctions.map(hook => ({ plugin, hook }))];
   }
 
   return functions;
@@ -192,10 +180,7 @@ export async function getResponseHooks(): Promise<Array<ResponseHook>> {
   let functions = [];
   for (const plugin of await getPlugins()) {
     const moreFunctions = plugin.module.responseHooks || [];
-    functions = [
-      ...functions,
-      ...moreFunctions.map(hook => ({ plugin, hook }))
-    ];
+    functions = [...functions, ...moreFunctions.map(hook => ({ plugin, hook }))];
   }
 
   return functions;
@@ -218,6 +203,6 @@ function _initPlugin(packageJSON: Object, module: any, path: ?string): Plugin {
     description: packageJSON.description || meta.description || '',
     version: packageJSON.version || 'unknown',
     directory: path || '',
-    module: module
+    module: module,
   };
 }

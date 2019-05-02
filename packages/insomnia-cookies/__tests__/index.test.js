@@ -7,8 +7,8 @@ describe('jarFromCookies()', () => {
       {
         key: 'foo',
         value: 'bar',
-        domain: 'google.com'
-      }
+        domain: 'google.com',
+      },
     ]);
 
     jar.store.getAllCookies((err, cookies) => {
@@ -36,12 +36,12 @@ describe('cookiesFromJar()', () => {
         key: 'bar',
         value: 'baz',
         domain: 'insomnia.rest',
-        expires: d
+        expires: d,
       },
       {
         // This one will fail to parse, and be skipped
-        bad: 'cookie'
-      }
+        bad: 'cookie',
+      },
     ];
 
     const jar = CookieJar.fromJSON({ cookies: initialCookies });
@@ -51,9 +51,7 @@ describe('cookiesFromJar()', () => {
     expect(cookies[0].domain).toBe('insomnia.rest');
     expect(cookies[0].key).toBe('bar');
     expect(cookies[0].value).toBe('baz');
-    expect(cookies[0].creation).toMatch(
-      /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/
-    );
+    expect(cookies[0].creation).toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/);
     expect(cookies[0].expires).toEqual(d.toISOString());
   });
 

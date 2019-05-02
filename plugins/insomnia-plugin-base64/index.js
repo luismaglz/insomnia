@@ -9,14 +9,14 @@ module.exports.templateTags = [
         type: 'enum',
         options: [
           { displayName: 'Encode', value: 'encode' },
-          { displayName: 'Decode', value: 'decode' }
-        ]
+          { displayName: 'Decode', value: 'decode' },
+        ],
       },
       {
         displayName: 'Value',
         type: 'string',
-        placeholder: 'My text'
-      }
+        placeholder: 'My text',
+      },
     ],
     run(context, op, text) {
       text = text || '';
@@ -26,10 +26,8 @@ module.exports.templateTags = [
       } else if (op === 'decode') {
         return Buffer.from(text, 'base64').toString('utf8');
       } else {
-        throw new Error(
-          'Unsupported operation "' + op + '". Must be encode or decode.'
-        );
+        throw new Error('Unsupported operation "' + op + '". Must be encode or decode.');
       }
-    }
-  }
+    },
+  },
 ];

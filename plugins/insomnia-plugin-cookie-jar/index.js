@@ -9,12 +9,12 @@ module.exports.templateTags = [
       {
         type: 'string',
         displayName: 'Cookie Url',
-        description: 'fully qualified URL (e.g. https://domain.tld/path)'
+        description: 'fully qualified URL (e.g. https://domain.tld/path)',
       },
       {
         type: 'string',
-        displayName: 'Cookie Name'
-      }
+        displayName: 'Cookie Name',
+      },
     ],
     async run(context, url, name) {
       const { meta } = context;
@@ -23,21 +23,17 @@ module.exports.templateTags = [
         return null;
       }
 
-      const workspace = await context.util.models.workspace.getById(
-        meta.workspaceId
-      );
+      const workspace = await context.util.models.workspace.getById(meta.workspaceId);
 
       if (!workspace) {
         throw new Error(`Workspace not found for ${meta.workspaceId}`);
       }
 
-      const cookieJar = await context.util.models.cookieJar.getOrCreateForWorkspace(
-        workspace
-      );
+      const cookieJar = await context.util.models.cookieJar.getOrCreateForWorkspace(workspace);
 
       return getCookieValue(cookieJar, url, name);
-    }
-  }
+    },
+  },
 ];
 
 function getCookieValue(cookieJar, url, name) {
@@ -58,7 +54,7 @@ function getCookieValue(cookieJar, url, name) {
       if (!cookie) {
         const names = cookies.map(c => `"${c.key}"`).join(',\n\t');
         throw new Error(
-          `No cookie with name "${name}".\nChoices are [\n\t${names}\n] for url "${url}"`
+          `No cookie with name "${name}".\nChoices are [\n\t${names}\n] for url "${url}"`,
         );
       } else {
         resolve(cookie ? cookie.value : null);

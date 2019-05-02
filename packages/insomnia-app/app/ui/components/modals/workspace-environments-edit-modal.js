@@ -2,11 +2,7 @@
 import * as React from 'react';
 import autobind from 'autobind-decorator';
 import classnames from 'classnames';
-import {
-  SortableContainer,
-  SortableElement,
-  arrayMove
-} from 'react-sortable-hoc';
+import { SortableContainer, SortableElement, arrayMove } from 'react-sortable-hoc/dist/es6';
 import { Dropdown, DropdownButton, DropdownItem } from '../base/dropdown';
 import PromptButton from '../base/prompt-button';
 import Button from '../base/button';
@@ -35,7 +31,8 @@ type Props = {
   lineWrapping: boolean,
   render: Function,
   getRenderContext: Function,
-  nunjucksPowerUserMode: boolean
+  nunjucksPowerUserMode: boolean,
+  isVariableUncovered: boolean,
 };
 
 type State = {
@@ -43,19 +40,14 @@ type State = {
   isValid: boolean,
   subEnvironments: Array<Environment>,
   rootEnvironment: Environment | null,
-  selectedEnvironmentId: string | null
+  selectedEnvironmentId: string | null,
 };
 
 const SidebarListItem = SortableElement(
-  ({
-    environment,
-    activeEnvironment,
-    showEnvironment,
-    changeEnvironmentName
-  }) => {
+  ({ environment, activeEnvironment, showEnvironment, changeEnvironmentName }) => {
     const classes = classnames({
       'env-modal__sidebar-item': true,
-      'env-modal__sidebar-item--active': activeEnvironment === environment
+      'env-modal__sidebar-item--active': activeEnvironment === environment,
     });
 
     return (
@@ -63,18 +55,13 @@ const SidebarListItem = SortableElement(
         <Button onClick={showEnvironment} value={environment}>
           <i className="fa fa-drag-handle drag-handle" />
           {environment.color ? (
-            <i
-              className="space-right fa fa-circle"
-              style={{ color: environment.color }}
-            />
+            <i className="space-right fa fa-circle" style={{ color: environment.color }} />
           ) : (
             <i className="space-right fa fa-empty" />
           )}
 
           {environment.isPrivate && (
-            <Tooltip
-              position="top"
-              message="Environment will not be exported or synced">
+            <Tooltip position="top" message="Environment will not be exported or synced">
               <i className="fa fa-eye-slash faint space-right" />
             </Tooltip>
           )}
@@ -87,16 +74,11 @@ const SidebarListItem = SortableElement(
         </Button>
       </li>
     );
-  }
+  },
 );
 
 const SidebarList = SortableContainer(
-  ({
-    environments,
-    activeEnvironment,
-    showEnvironment,
-    changeEnvironmentName
-  }) => (
+  ({ environments, activeEnvironment, showEnvironment, changeEnvironmentName }) => (
     <ul>
       {environments.map((e, i) => (
         <SidebarListItem
@@ -109,7 +91,7 @@ const SidebarList = SortableContainer(
         />
       ))}
     </ul>
-  )
+  ),
 );
 
 @autobind
@@ -127,7 +109,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
       isValid: true,
       subEnvironments: [],
       rootEnvironment: null,
-      selectedEnvironmentId: null
+      selectedEnvironmentId: null,
     };
 
     this.colorChangeTimeout = null;
@@ -159,44 +141,33 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
     this.modal && this.modal.show();
   }
 
-  async _load(
-    workspace: Workspace | null,
-    environmentToSelect: Environment | null = null
-  ) {
+  async _load(workspace: Workspace | null, environmentToSelect: Environment | null = null) {
     if (!workspace) {
       console.warn('Failed to reload environment editor without Workspace');
       return;
     }
 
-    const rootEnvironment = await models.environment.getOrCreateForWorkspace(
-      workspace
-    );
-    const subEnvironments = await models.environment.findByParentId(
-      rootEnvironment._id
-    );
+    const rootEnvironment = await models.environment.getOrCreateForWorkspace(workspace);
+    const subEnvironments = await models.environment.findByParentId(rootEnvironment._id);
 
     let selectedEnvironmentId;
 
     if (environmentToSelect) {
       selectedEnvironmentId = environmentToSelect._id;
-    } else if (
-      this.state.workspace &&
-      workspace._id !== this.state.workspace._id
-    ) {
+    } else if (this.state.workspace && workspace._id !== this.state.workspace._id) {
       // We've changed workspaces, so load the root one
       selectedEnvironmentId = rootEnvironment._id;
     } else {
       // We haven't changed workspaces, so try loading the last environment, and fall back
       // to the root one
-      selectedEnvironmentId =
-        this.state.selectedEnvironmentId || rootEnvironment._id;
+      selectedEnvironmentId = this.state.selectedEnvironmentId || rootEnvironment._id;
     }
 
     this.setState({
       workspace,
       rootEnvironment,
       subEnvironments,
-      selectedEnvironmentId
+      selectedEnvironmentId,
     });
   }
 
@@ -211,7 +182,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
     const parentId = rootEnvironment._id;
     const environment = await models.environment.create({
       parentId,
-      isPrivate
+      isPrivate,
     });
     await this._load(workspace, environment);
   }
@@ -259,10 +230,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
     await this._load(workspace);
   }
 
-  _handleChangeEnvironmentColor(
-    environment: Environment,
-    color: string | null
-  ) {
+  _handleChangeEnvironmentColor(environment: Environment, color: string | null) {
     clearTimeout(this.colorChangeTimeout);
     this.colorChangeTimeout = setTimeout(async () => {
       const { workspace } = this.state;
@@ -275,20 +243,14 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
     this._saveChanges();
 
     // Call this last in case component unmounted
-    const isValid = this.environmentEditorRef
-      ? this.environmentEditorRef.isValid()
-      : false;
+    const isValid = this.environmentEditorRef ? this.environmentEditorRef.isValid() : false;
     if (this.state.isValid !== isValid) {
       this.setState({ isValid });
     }
   }
 
   _getActiveEnvironment(): Environment | null {
-    const {
-      selectedEnvironmentId,
-      subEnvironments,
-      rootEnvironment
-    } = this.state;
+    const { selectedEnvironmentId, subEnvironments, rootEnvironment } = this.state;
     if (rootEnvironment && rootEnvironment._id === selectedEnvironmentId) {
       return rootEnvironment;
     } else {
@@ -308,7 +270,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
         const [
           _, // eslint-disable-line no-unused-vars
           doc,
-          fromSync
+          fromSync,
         ] = change;
 
         // Force an editor refresh if any changes from sync come in
@@ -323,7 +285,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
   async _handleSortEnd(results: {
     oldIndex: number,
     newIndex: number,
-    collection: Array<Environment>
+    collection: Array<Environment>,
   }) {
     const { oldIndex, newIndex } = results;
     if (newIndex === oldIndex) {
@@ -367,10 +329,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
     el.setAttribute('value', color);
     el.addEventListener('input', (e: Event) => {
       if (e.target instanceof HTMLInputElement) {
-        this._handleChangeEnvironmentColor(
-          environment,
-          e.target && e.target.value
-        );
+        this._handleChangeEnvironmentColor(environment, e.target && e.target.value);
       }
     });
 
@@ -409,7 +368,8 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
       lineWrapping,
       render,
       getRenderContext,
-      nunjucksPowerUserMode
+      nunjucksPowerUserMode,
+      isVariableUncovered,
     } = this.props;
 
     const { subEnvironments, rootEnvironment, isValid } = this.state;
@@ -423,17 +383,13 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
           <div className="env-modal__sidebar">
             <li
               className={classnames('env-modal__sidebar-root-item', {
-                'env-modal__sidebar-item--active':
-                  activeEnvironment === rootEnvironment
+                'env-modal__sidebar-item--active': activeEnvironment === rootEnvironment,
               })}>
-              <Button
-                onClick={this._handleShowEnvironment}
-                value={rootEnvironment}>
+              <Button onClick={this._handleShowEnvironment} value={rootEnvironment}>
                 {ROOT_ENVIRONMENT_NAME}
                 <HelpTooltip className="space-left">
-                  The variables in this environment are always available,
-                  regardless of which sub-environment is active. Useful for
-                  storing default or fallback values.
+                  The variables in this environment are always available, regardless of which
+                  sub-environment is active. Useful for storing default or fallback values.
                 </HelpTooltip>
               </Button>
             </li>
@@ -444,9 +400,7 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
                   <i className="fa fa-plus-circle" />
                   <i className="fa fa-caret-down" />
                 </DropdownButton>
-                <DropdownItem
-                  onClick={this._handleAddEnvironment}
-                  value={false}>
+                <DropdownItem onClick={this._handleAddEnvironment} value={false}>
                   <i className="fa fa-eye" /> Environment
                 </DropdownItem>
                 <DropdownItem
@@ -498,13 +452,8 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
                     Color <i className="fa fa-caret-down" />
                   </DropdownButton>
 
-                  <DropdownItem
-                    value={activeEnvironment}
-                    onClick={this._handleClickColorChange}>
-                    <i
-                      className="fa fa-circle"
-                      style={{ color: activeEnvironment.color }}
-                    />
+                  <DropdownItem value={activeEnvironment} onClick={this._handleClickColorChange}>
+                    <i className="fa fa-circle" style={{ color: activeEnvironment.color }} />
                     {activeEnvironment.color ? 'Change Color' : 'Assign Color'}
                   </DropdownItem>
 
@@ -534,14 +483,13 @@ class WorkspaceEnvironmentsEditModal extends React.PureComponent<Props, State> {
                 editorKeyMap={editorKeyMap}
                 lineWrapping={lineWrapping}
                 ref={this._setEditorRef}
-                key={`${this.editorKey}::${
-                  activeEnvironment ? activeEnvironment._id : 'n/a'
-                }`}
+                key={`${this.editorKey}::${activeEnvironment ? activeEnvironment._id : 'n/a'}`}
                 environment={activeEnvironment ? activeEnvironment.data : {}}
                 didChange={this._didChange}
                 render={render}
                 getRenderContext={getRenderContext}
                 nunjucksPowerUserMode={nunjucksPowerUserMode}
+                isVariableUncovered={isVariableUncovered}
               />
             </div>
           </div>

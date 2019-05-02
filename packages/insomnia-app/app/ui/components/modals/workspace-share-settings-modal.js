@@ -1,12 +1,7 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
-import {
-  Dropdown,
-  DropdownButton,
-  DropdownDivider,
-  DropdownItem
-} from '../base/dropdown';
+import { Dropdown, DropdownButton, DropdownDivider, DropdownItem } from '../base/dropdown';
 import Link from '../base/link';
 import Modal from '../base/modal';
 import ModalBody from '../base/modal-body';
@@ -71,7 +66,7 @@ class WorkspaceShareSettingsModal extends PureComponent {
         } catch (err) {
           this._resetState({ error: err.message, loading: false });
         }
-      }
+      },
     });
   }
 
@@ -87,16 +82,13 @@ class WorkspaceShareSettingsModal extends PureComponent {
     const teams = await session.listTeams();
 
     try {
-      const resourceGroup = await sync.fetchResourceGroup(
-        resource.resourceGroupId,
-        true
-      );
+      const resourceGroup = await sync.fetchResourceGroup(resource.resourceGroupId, true);
       this.setState({ teams, resourceGroup, loading: false, error: '' });
     } catch (err) {
       console.warn('Failed to fetch ResourceGroup', err);
       this.setState({
         error: 'No sync info found. Please try again.',
-        loading: false
+        loading: false,
       });
     }
   }
@@ -108,10 +100,10 @@ class WorkspaceShareSettingsModal extends PureComponent {
           teams: [],
           resourceGroup: null,
           error: '',
-          loading: false
+          loading: false,
         },
-        patch
-      )
+        patch,
+      ),
     );
   }
 
@@ -140,8 +132,8 @@ class WorkspaceShareSettingsModal extends PureComponent {
           <ModalHeader key="header">Share Workspace</ModalHeader>
           <ModalBody key="body" className="pad text-center" noScroll>
             <p>
-              Share <strong>{workspace.name}</strong> to automatically sync your
-              API workspace with your team members.
+              Share <strong>{workspace.name}</strong> to automatically sync your API workspace with
+              your team members.
             </p>
             <div className="form-control pad">
               {error ? <div className="danger">Oops: {error}</div> : null}
@@ -151,13 +143,11 @@ class WorkspaceShareSettingsModal extends PureComponent {
                   resourceGroup && resourceGroup.teamId ? (
                     <DropdownButton className="btn btn--clicky">
                       <i className="fa fa-users" /> Shared with{' '}
-                      <strong>{resourceGroup.teamName}</strong>{' '}
-                      <i className="fa fa-caret-down" />
+                      <strong>{resourceGroup.teamName}</strong> <i className="fa fa-caret-down" />
                     </DropdownButton>
                   ) : (
                     <DropdownButton className="btn btn--clicky">
-                      <i className="fa fa-lock" /> Private{' '}
-                      <i className="fa fa-caret-down" />
+                      <i className="fa fa-lock" /> Private <i className="fa fa-caret-down" />
                     </DropdownButton>
                   )
                 ) : (
@@ -167,12 +157,8 @@ class WorkspaceShareSettingsModal extends PureComponent {
                   </DropdownButton>
                 )}
                 {teams.map(team => (
-                  <DropdownItem
-                    key={team.id}
-                    value={team}
-                    onClick={this._handleShareWithTeam}>
-                    <i className="fa fa-users" /> Share with{' '}
-                    <strong>{team.name}</strong>
+                  <DropdownItem key={team.id} value={team} onClick={this._handleShareWithTeam}>
+                    <i className="fa fa-users" /> Share with <strong>{team.name}</strong>
                   </DropdownItem>
                 ))}
                 {teams.length === 0 && (
@@ -219,7 +205,7 @@ class WorkspaceShareSettingsModal extends PureComponent {
 }
 
 WorkspaceShareSettingsModal.propTypes = {
-  workspace: PropTypes.object.isRequired
+  workspace: PropTypes.object.isRequired,
 };
 
 export default WorkspaceShareSettingsModal;

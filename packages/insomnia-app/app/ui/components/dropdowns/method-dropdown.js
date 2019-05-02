@@ -1,12 +1,7 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
-import {
-  Dropdown,
-  DropdownButton,
-  DropdownDivider,
-  DropdownItem
-} from '../base/dropdown';
+import { Dropdown, DropdownButton, DropdownDivider, DropdownItem } from '../base/dropdown';
 import * as constants from '../../../common/constants';
 import { showPrompt } from '../modals/index';
 
@@ -40,10 +35,7 @@ class MethodDropdown extends PureComponent {
       hints: recentMethods,
       onDeleteHint: method => {
         recentMethods = recentMethods.filter(m => m !== method);
-        window.localStorage.setItem(
-          LOCALSTORAGE_KEY,
-          JSON.stringify(recentMethods)
-        );
+        window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recentMethods));
       },
       onComplete: method => {
         // Don't add empty methods
@@ -59,14 +51,11 @@ class MethodDropdown extends PureComponent {
         // Save method as recent
         recentMethods = recentMethods.filter(m => m !== method);
         recentMethods.unshift(method);
-        window.localStorage.setItem(
-          LOCALSTORAGE_KEY,
-          JSON.stringify(recentMethods)
-        );
+        window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(recentMethods));
 
         // Invoke callback
         this.props.onChange(method);
-      }
+      },
     });
   }
 
@@ -86,10 +75,7 @@ class MethodDropdown extends PureComponent {
       ...extraProps
     } = this.props;
     return (
-      <Dropdown
-        ref={this._setDropdownRef}
-        className="method-dropdown"
-        right={right}>
+      <Dropdown ref={this._setDropdownRef} className="method-dropdown" right={right}>
         <DropdownButton type="button" {...extraProps}>
           {method} <i className="fa fa-caret-down" />
         </DropdownButton>
@@ -120,7 +106,7 @@ MethodDropdown.propTypes = {
   method: PropTypes.string.isRequired,
 
   // Optional
-  right: PropTypes.bool
+  right: PropTypes.bool,
 };
 
 export default MethodDropdown;

@@ -5,13 +5,22 @@ import { showModal } from '../../modals/index';
 import { tokenizeTag } from '../../../../templating/utils';
 import { getTagDefinitions } from '../../../../templating/index';
 
-CodeMirror.defineExtension('enableNunjucksTags', function(handleRender) {
+CodeMirror.defineExtension('enableNunjucksTags', function(
+  handleRender,
+  handleGetRenderContext,
+  isVariableUncovered = false,
+) {
   if (!handleRender) {
     console.warn("enableNunjucksTags wasn't passed a render function");
     return;
   }
 
-  const refreshFn = _highlightNunjucksTags.bind(this, handleRender);
+  const refreshFn = _highlightNunjucksTags.bind(
+    this,
+    handleRender,
+    handleGetRenderContext,
+    isVariableUncovered,
+  );
   const debouncedRefreshFn = misc.debounce(refreshFn);
 
   this.on('change', (cm, change) => {
@@ -32,10 +41,9 @@ CodeMirror.defineExtension('enableNunjucksTags', function(handleRender) {
   refreshFn();
 });
 
-async function _highlightNunjucksTags(render) {
+async function _highlightNunjucksTags(render, renderContext, isVariableUncovered) {
   const renderCacheKey = Math.random() + '';
   const renderString = text => render(text, renderCacheKey);
-
   const activeMarks = [];
   const doc = this.getDoc();
 
@@ -43,9 +51,7 @@ async function _highlightNunjucksTags(render) {
   const vp = this.getViewport();
   for (let lineNo = vp.from; lineNo < vp.to; lineNo++) {
     const line = this.getLineTokens(lineNo);
-    const tokens = line.filter(
-      ({ type }) => type && type.indexOf('nunjucks') >= 0
-    );
+    const tokens = line.filter(({ type }) => type && type.indexOf('nunjucks') >= 0);
 
     // Aggregate same tokens
     const newTokens = [];
@@ -53,11 +59,7 @@ async function _highlightNunjucksTags(render) {
     for (let i = 0; i < tokens.length; i++) {
       const nextTok = tokens[i];
 
-      if (
-        currTok &&
-        currTok.type === nextTok.type &&
-        currTok.end === nextTok.start
-      ) {
+      if (currTok && currTok.type === nextTok.type && currTok.end === nextTok.start) {
         currTok.end = nextTok.end;
         currTok.string += nextTok.string;
       } else if (currTok) {
@@ -80,8 +82,7 @@ async function _highlightNunjucksTags(render) {
       const end = { line: lineNo, ch: tok.end };
       const cursor = doc.getCursor();
       const isSameLine = cursor.line === lineNo;
-      const isCursorInToken =
-        isSameLine && cursor.ch > tok.start && cursor.ch < tok.end;
+      const isCursorInToken = isSameLine && cursor.ch > tok.start && cursor.ch < tok.end;
       const isFocused = this.hasFocus();
 
       // Show the token again if we're not inside of it.
@@ -115,16 +116,28 @@ async function _highlightNunjucksTags(render) {
         __nunjucks: true, // Mark that we created it
         __template: tok.string,
         handleMouseEvents: false,
-        replacedWith: el
+        replacedWith: el,
       });
 
       (async function() {
-        await _updateElementText(renderString, mark, tok.string);
+        await _updateElementText(
+          renderString,
+          mark,
+          tok.string,
+          renderContext,
+          isVariableUncovered,
+        );
       })();
 
       // Update it every mouseenter because it may generate a new value every time
       el.addEventListener('mouseenter', async () => {
-        await _updateElementText(renderString, mark, tok.string);
+        await _updateElementText(
+          renderString,
+          mark,
+          tok.string,
+          renderContext,
+          isVariableUncovered,
+        );
       });
 
       activeMarks.push(mark);
@@ -141,7 +154,7 @@ async function _highlightNunjucksTags(render) {
             } else {
               console.warn('Tried to replace mark that did not exist', mark);
             }
-          }
+          },
         });
       });
 
@@ -198,10 +211,7 @@ async function _highlightNunjucksTags(render) {
 
   // Clear all the marks that we didn't just modify/add
   // For example, adding a {% raw %} tag would need to clear everything it wrapped
-  const marksInViewport = doc.findMarks(
-    { ch: 0, line: vp.from },
-    { ch: 0, line: vp.to }
-  );
+  const marksInViewport = doc.findMarks({ ch: 0, line: vp.from }, { ch: 0, line: vp.to });
 
   for (const mark of marksInViewport) {
     // Only check marks we created
@@ -222,7 +232,7 @@ async function _highlightNunjucksTags(render) {
   }
 }
 
-async function _updateElementText(render, mark, text) {
+async function _updateElementText(render, mark, text, renderContext, isVariableUncovered) {
   const el = mark.replacedWith;
 
   let innerHTML = '';
@@ -242,22 +252,16 @@ async function _updateElementText(render, mark, text) {
 
     if (tagMatch) {
       const tagData = tokenizeTag(str);
-      const tagDefinition = (await getTagDefinitions()).find(
-        d => d.name === tagData.name
-      );
+      const tagDefinition = (await getTagDefinitions()).find(d => d.name === tagData.name);
 
       if (tagDefinition) {
         // Try rendering these so we can show errors if needed
         const firstArg = tagDefinition.args[0];
         if (firstArg && firstArg.type === 'enum') {
           const argData = tagData.args[0];
-          const foundOption = firstArg.options.find(
-            d => d.value === argData.value
-          );
+          const foundOption = firstArg.options.find(d => d.value === argData.value);
           const option = foundOption || firstArg.options[0];
-          innerHTML = `${tagDefinition.displayName} &rArr; ${
-            option.displayName
-          }`;
+          innerHTML = `${tagDefinition.displayName} &rArr; ${option.displayName}`;
         } else {
           innerHTML = tagDefinition.displayName || tagData.name;
         }
@@ -269,8 +273,11 @@ async function _updateElementText(render, mark, text) {
       }
     } else {
       // Render if it's a variable
-      innerHTML = cleanedStr;
       title = await render(str);
+      const context = await renderContext();
+      const con = context.context.getKeysContext();
+      title = '{' + con.keyContext[cleanedStr] + '}: ' + title;
+      innerHTML = isVariableUncovered ? title : cleanedStr;
     }
     dataError = 'off';
   } catch (err) {
@@ -284,8 +291,7 @@ async function _updateElementText(render, mark, text) {
   el.setAttribute('data-ignore', dataIgnore);
   if (dataError === 'on') {
     el.setAttribute('data-error', dataError);
-    el.innerHTML =
-      '<label><i class="fa fa-exclamation-triangle"></i></label>' + innerHTML;
+    el.innerHTML = '<label><i class="fa fa-exclamation-triangle"></i></label>' + innerHTML;
   } else {
     el.innerHTML = '<label></label>' + innerHTML;
   }

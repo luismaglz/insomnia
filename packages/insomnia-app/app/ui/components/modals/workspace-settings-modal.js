@@ -22,10 +22,11 @@ type Props = {
   editorKeyMap: string,
   editorLineWrapping: boolean,
   nunjucksPowerUserMode: boolean,
+  isVariableUncovered: boolean,
   handleRender: Function,
   handleGetRenderContext: Function,
   handleRemoveWorkspace: Function,
-  handleDuplicateWorkspace: Function
+  handleDuplicateWorkspace: Function,
 };
 
 type State = {
@@ -37,7 +38,7 @@ type State = {
   isPrivate: boolean,
   passphrase: string,
   showDescription: boolean,
-  defaultPreviewMode: boolean
+  defaultPreviewMode: boolean,
 };
 
 @autobind
@@ -56,7 +57,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
       passphrase: '',
       isPrivate: false,
       showDescription: false,
-      defaultPreviewMode: false
+      defaultPreviewMode: false,
     };
   }
 
@@ -91,7 +92,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
       pfxPath: '',
       host: '',
       passphrase: '',
-      isPrivate: false
+      isPrivate: false,
     }));
   }
 
@@ -135,14 +136,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
     e.preventDefault();
 
     const { workspace } = this.props;
-    const {
-      pfxPath,
-      crtPath,
-      keyPath,
-      host,
-      passphrase,
-      isPrivate
-    } = this.state;
+    const { pfxPath, crtPath, keyPath, host, passphrase, isPrivate } = this.state;
 
     const certificate = {
       host,
@@ -152,20 +146,20 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
       disabled: false,
       cert: crtPath || null,
       key: keyPath || null,
-      pfx: pfxPath || null
+      pfx: pfxPath || null,
     };
 
     await models.clientCertificate.create(certificate);
     this._handleToggleCertificateForm();
   }
 
-  async _handleDeleteCertificate(certificate: ClientCertificate) {
+  static async _handleDeleteCertificate(certificate: ClientCertificate) {
     await models.clientCertificate.remove(certificate);
   }
 
-  async _handleToggleCertificate(certificate: ClientCertificate) {
+  static async _handleToggleCertificate(certificate: ClientCertificate) {
     await models.clientCertificate.update(certificate, {
-      disabled: !certificate.disabled
+      disabled: !certificate.disabled,
     });
   }
 
@@ -174,7 +168,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
     this.setState({
       showDescription: hasDescription,
       defaultPreviewMode: hasDescription,
-      showAddCertificateForm: false
+      showAddCertificateForm: false,
     });
 
     this.modal && this.modal.show();
@@ -189,9 +183,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
     return (
       <ModalHeader key={`header::${workspace._id}`}>
         Workspace Settings{' '}
-        <div className="txt-sm selectable faint monospace">
-          {workspace ? workspace._id : ''}
-        </div>
+        <div className="txt-sm selectable faint monospace">{workspace ? workspace._id : ''}</div>
       </ModalHeader>
     );
   }
@@ -203,31 +195,17 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
           <div>
             <span className="pad-right no-wrap">
               <strong>PFX:</strong>{' '}
-              {certificate.pfx ? (
-                <i className="fa fa-check" />
-              ) : (
-                <i className="fa fa-remove" />
-              )}
+              {certificate.pfx ? <i className="fa fa-check" /> : <i className="fa fa-remove" />}
             </span>
             <span className="pad-right no-wrap">
               <strong>CRT:</strong>{' '}
-              {certificate.cert ? (
-                <i className="fa fa-check" />
-              ) : (
-                <i className="fa fa-remove" />
-              )}
+              {certificate.cert ? <i className="fa fa-check" /> : <i className="fa fa-remove" />}
             </span>
             <span className="pad-right no-wrap">
               <strong>Key:</strong>{' '}
-              {certificate.key ? (
-                <i className="fa fa-check" />
-              ) : (
-                <i className="fa fa-remove" />
-              )}
+              {certificate.key ? <i className="fa fa-check" /> : <i className="fa fa-remove" />}
             </span>
-            <span
-              className="pad-right no-wrap"
-              title={certificate.passphrase || null}>
+            <span className="pad-right no-wrap" title={certificate.passphrase || null}>
               <strong>Passphrase:</strong>{' '}
               {certificate.passphrase ? (
                 <i className="fa fa-check" />
@@ -244,7 +222,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
             <button
               className="btn btn--super-compact width-auto"
               title="Enable or disable certificate"
-              onClick={() => this._handleToggleCertificate(certificate)}>
+              onClick={() => WorkspaceSettingsModal._handleToggleCertificate(certificate)}>
               {certificate.disabled ? (
                 <i className="fa fa-square-o" />
               ) : (
@@ -255,7 +233,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
               className="btn btn--super-compact width-auto"
               confirmMessage=" "
               addIcon
-              onClick={() => this._handleDeleteCertificate(certificate)}>
+              onClick={() => WorkspaceSettingsModal._handleDeleteCertificate(certificate)}>
               <i className="fa fa-trash-o" />
             </PromptButton>
           </div>
@@ -274,7 +252,8 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
       editorKeyMap,
       handleRender,
       handleGetRenderContext,
-      nunjucksPowerUserMode
+      nunjucksPowerUserMode,
+      isVariableUncovered,
     } = this.props;
 
     const publicCertificates = clientCertificates.filter(c => !c.isPrivate);
@@ -287,17 +266,17 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
       isPrivate,
       showAddCertificateForm,
       showDescription,
-      defaultPreviewMode
+      defaultPreviewMode,
     } = this.state;
 
     return (
       <ModalBody key={`body::${workspace._id}`} noScroll>
         <Tabs forceRenderTabPanel className="react-tabs">
           <TabList>
-            <Tab>
+            <Tab tabIndex="-1">
               <button>Overview</button>
             </Tab>
-            <Tab>
+            <Tab tabIndex="-1">
               <button>Client Certificates</button>
             </Tab>
           </TabList>
@@ -327,6 +306,7 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
                   handleRender={handleRender}
                   handleGetRenderContext={handleGetRenderContext}
                   nunjucksPowerUserMode={nunjucksPowerUserMode}
+                  isVariableUncovered={isVariableUncovered}
                   defaultValue={workspace.description}
                   onChange={this._handleDescriptionChange}
                 />
@@ -392,8 +372,8 @@ class WorkspaceSettingsModal extends React.PureComponent<Props, State> {
                   <label>
                     Host
                     <HelpTooltip position="right" className="space-left">
-                      The host for which this client certificate is valid. Port
-                      number is optional and * can be used as a wildcard.
+                      The host for which this client certificate is valid. Port number is optional
+                      and * can be used as a wildcard.
                     </HelpTooltip>
                     <input
                       type="text"

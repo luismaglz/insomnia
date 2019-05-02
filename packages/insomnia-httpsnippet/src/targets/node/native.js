@@ -16,9 +16,9 @@ var CodeBuilder = require('../../helpers/code-builder');
 module.exports = function(source, options) {
   var opts = util._extend(
     {
-      indent: '  '
+      indent: '  ',
     },
-    options
+    options,
   );
 
   var code = new CodeBuilder(opts.indent);
@@ -28,13 +28,10 @@ module.exports = function(source, options) {
     hostname: source.uriObj.hostname,
     port: source.uriObj.port,
     path: source.uriObj.path,
-    headers: source.allHeaders
+    headers: source.allHeaders,
   };
 
-  code.push(
-    'var http = require("%s");',
-    source.uriObj.protocol.replace(':', '')
-  );
+  code.push('var http = require("%s");', source.uriObj.protocol.replace(':', ''));
 
   code
     .blank()
@@ -61,8 +58,8 @@ module.exports = function(source, options) {
         code.push(
           'req.write(qs.stringify(%s));',
           util.inspect(source.postData.paramsObj, {
-            depth: null
-          })
+            depth: null,
+          }),
         );
       }
       break;
@@ -72,18 +69,15 @@ module.exports = function(source, options) {
         code.push(
           'req.write(JSON.stringify(%s));',
           util.inspect(source.postData.jsonObj, {
-            depth: null
-          })
+            depth: null,
+          }),
         );
       }
       break;
 
     default:
       if (source.postData.text) {
-        code.push(
-          'req.write(%s);',
-          JSON.stringify(source.postData.text, null, opts.indent)
-        );
+        code.push('req.write(%s);', JSON.stringify(source.postData.text, null, opts.indent));
       }
   }
 
@@ -96,5 +90,5 @@ module.exports.info = {
   key: 'native',
   title: 'HTTP',
   link: 'http://nodejs.org/api/http.html#http_http_request_options_callback',
-  description: 'Node.js native HTTP interface'
+  description: 'Node.js native HTTP interface',
 };

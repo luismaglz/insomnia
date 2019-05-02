@@ -5,7 +5,7 @@ import * as misc from '../../common/misc';
 export function init(
   renderedRequest: RenderedRequest,
   renderedContext: Object,
-  readOnly: boolean = false
+  readOnly: boolean = false,
 ): { request: Object } {
   if (!renderedRequest) {
     throw new Error('contexts.request initialized without request');
@@ -38,9 +38,7 @@ export function init(
         renderedRequest.cookies.push({ name, value });
       }
     },
-    getEnvironmentVariable(
-      name: string
-    ): string | number | boolean | Object | Array<any> | null {
+    getEnvironmentVariable(name: string): string | number | boolean | Object | Array<any> | null {
       return renderedContext[name];
     },
     getEnvironment(): Object {
@@ -71,7 +69,7 @@ export function init(
     getHeaders(): Array<{ name: string, value: string }> {
       return renderedRequest.headers.map(h => ({
         name: h.name,
-        value: h.value
+        value: h.value,
       }));
     },
     hasHeader(name: string): boolean {
@@ -79,9 +77,7 @@ export function init(
     },
     removeHeader(name: string): void {
       const headers = misc.filterHeaders(renderedRequest.headers, name);
-      renderedRequest.headers = renderedRequest.headers.filter(
-        h => !headers.includes(h)
-      );
+      renderedRequest.headers = renderedRequest.headers.filter(h => !headers.includes(h));
     },
     setHeader(name: string, value: string): void {
       const header = misc.filterHeaders(renderedRequest.headers, name)[0];
@@ -98,10 +94,7 @@ export function init(
       }
     },
     getParameter(name: string): string | null {
-      const parameters = misc.filterParameters(
-        renderedRequest.parameters,
-        name
-      );
+      const parameters = misc.filterParameters(renderedRequest.parameters, name);
       if (parameters.length) {
         // Use the last parameter if there are multiple of the same
         const parameter = parameters[parameters.length - 1];
@@ -113,26 +106,18 @@ export function init(
     getParameters(): Array<{ name: string, value: string }> {
       return renderedRequest.parameters.map(p => ({
         name: p.name,
-        value: p.value
+        value: p.value,
       }));
     },
     hasParameter(name: string): boolean {
       return this.getParameter(name) !== null;
     },
     removeParameter(name: string): void {
-      const parameters = misc.filterParameters(
-        renderedRequest.parameters,
-        name
-      );
-      renderedRequest.parameters = renderedRequest.parameters.filter(
-        p => !parameters.includes(p)
-      );
+      const parameters = misc.filterParameters(renderedRequest.parameters, name);
+      renderedRequest.parameters = renderedRequest.parameters.filter(p => !parameters.includes(p));
     },
     setParameter(name: string, value: string): void {
-      const parameter = misc.filterParameters(
-        renderedRequest.parameters,
-        name
-      )[0];
+      const parameter = misc.filterParameters(renderedRequest.parameters, name)[0];
       if (parameter) {
         parameter.value = value;
       } else {
@@ -140,14 +125,11 @@ export function init(
       }
     },
     addParameter(name: string, value: string): void {
-      const parameter = misc.filterParameters(
-        renderedRequest.parameters,
-        name
-      )[0];
+      const parameter = misc.filterParameters(renderedRequest.parameters, name)[0];
       if (!parameter) {
         renderedRequest.parameters.push({ name, value });
       }
-    }
+    },
 
     // NOTE: For these to make sense, we'd need to account for cookies in the jar as well
     // addCookie (name: string, value: string): void {}

@@ -2,10 +2,7 @@
 import * as React from 'react';
 import autobind from 'autobind-decorator';
 import classnames from 'classnames';
-import {
-  buildQueryStringFromParams,
-  joinUrlAndQueryString
-} from 'insomnia-url';
+import { buildQueryStringFromParams, joinUrlAndQueryString } from 'insomnia-url';
 import Button from '../base/button';
 import Highlight from '../base/highlight';
 import Modal from '../base/modal';
@@ -25,7 +22,7 @@ type Props = {
   workspaceId: string,
   activeRequestParentId: string,
   workspaceChildren: Array<Request | RequestGroup>,
-  workspaces: Array<Workspace>
+  workspaces: Array<Workspace>,
 };
 
 type State = {
@@ -35,7 +32,7 @@ type State = {
   workspaces: Array<Workspace>,
   matchedRequests: Array<Request>,
   matchedWorkspaces: Array<Workspace>,
-  activeIndex: number
+  activeIndex: number,
 };
 
 @autobind
@@ -53,7 +50,7 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
       workspaces: [],
       matchedRequests: [],
       matchedWorkspaces: [],
-      activeIndex: -1
+      activeIndex: -1,
     };
   }
 
@@ -85,8 +82,7 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
   }
 
   _setActiveIndex(activeIndex: number) {
-    const maxIndex =
-      this.state.matchedRequests.length + this.state.matchedWorkspaces.length;
+    const maxIndex = this.state.matchedRequests.length + this.state.matchedWorkspaces.length;
     if (activeIndex < 0) {
       activeIndex = this.state.matchedRequests.length - 1;
     } else if (activeIndex >= maxIndex) {
@@ -103,10 +99,7 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
       // Activate the request if there is one
       const request = matchedRequests[activeIndex];
       this._activateRequest(request);
-    } else if (
-      activeIndex <
-      matchedRequests.length + matchedWorkspaces.length
-    ) {
+    } else if (activeIndex < matchedRequests.length + matchedWorkspaces.length) {
       // Activate the workspace if there is one
       const index = activeIndex - matchedRequests.length;
       const workspace = matchedWorkspaces[index];
@@ -126,7 +119,7 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
     // Create the request if nothing matched
     const patch = {
       name: searchString,
-      parentId: activeRequestParentId
+      parentId: activeRequestParentId,
     };
 
     const request = await models.request.create(patch);
@@ -154,12 +147,8 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
   /** Return array of path segments for given request or folder */
   _groupOf(requestOrRequestGroup: BaseModel): Array<string> {
     const { workspaceChildren } = this.props;
-    const requestGroups = workspaceChildren.filter(
-      d => d.type === models.requestGroup.type
-    );
-    const matchedGroups = requestGroups.filter(
-      g => g._id === requestOrRequestGroup.parentId
-    );
+    const requestGroups = workspaceChildren.filter(d => d.type === models.requestGroup.type);
+    const matchedGroups = requestGroups.filter(g => g._id === requestOrRequestGroup.parentId);
     const currentGroupName =
       requestOrRequestGroup.type === models.requestGroup.type
         ? `${(requestOrRequestGroup: any).name}`
@@ -182,21 +171,13 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
   _isMatch(request: Request, searchStrings: string): number | null {
     let finalUrl = request.url;
     if (request.parameters) {
-      finalUrl = joinUrlAndQueryString(
-        finalUrl,
-        buildQueryStringFromParams(request.parameters)
-      );
+      finalUrl = joinUrlAndQueryString(finalUrl, buildQueryStringFromParams(request.parameters));
     }
 
     const match = fuzzyMatchAll(
       searchStrings,
-      [
-        request.name,
-        finalUrl,
-        request.method || '',
-        this._groupOf(request).join('/')
-      ],
-      { splitSpace: true }
+      [request.name, finalUrl, request.method || '', this._groupOf(request).join('/')],
+      { splitSpace: true },
     );
 
     // Match exact Id
@@ -242,7 +223,7 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
       matchedRequests = matchedRequests
         .map(r => ({
           request: r,
-          score: this._isMatch((r: any), searchString)
+          score: this._isMatch((r: any), searchString),
         }))
         .filter(v => v.score !== null)
         .sort((a, b) => (a.score || -Infinity) - (b.score || -Infinity))
@@ -252,13 +233,11 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
     // Show 20 max
     matchedRequests = matchedRequests.slice(0, 20);
 
-    const matchedWorkspaces = workspaces
-      .filter(w => w._id !== workspaceId)
-      .filter(w => {
-        const name = w.name.toLowerCase();
-        const toMatch = searchString.toLowerCase();
-        return name.indexOf(toMatch) !== -1;
-      });
+    const matchedWorkspaces = workspaces.filter(w => w._id !== workspaceId).filter(w => {
+      const name = w.name.toLowerCase();
+      const toMatch = searchString.toLowerCase();
+      return name.indexOf(toMatch) !== -1;
+    });
 
     const activeIndex = searchString ? 0 : -1;
 
@@ -268,7 +247,7 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
       matchedWorkspaces,
 
       // Ugh. Force cast to make Flow happy
-      matchedRequests: ((matchedRequests: any): Array<Request>)
+      matchedRequests: ((matchedRequests: any): Array<Request>),
     });
   }
 
@@ -293,17 +272,10 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
   }
 
   render() {
-    const {
-      searchString,
-      activeIndex,
-      matchedRequests,
-      matchedWorkspaces
-    } = this.state;
+    const { searchString, activeIndex, matchedRequests, matchedWorkspaces } = this.state;
 
     const { workspaceChildren } = this.props;
-    const requestGroups = workspaceChildren.filter(
-      d => d.type === models.requestGroup.type
-    );
+    const requestGroups = workspaceChildren.filter(d => d.type === models.requestGroup.type);
 
     return (
       <Modal ref={this._setModalRef} dontFocus tall>
@@ -312,10 +284,8 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
             <span className="vertically-center">
               <div>
                 <span className="monospace">tab</span> or&nbsp;
-                <span className="monospace">↑↓</span> to
-                navigate&nbsp;&nbsp;&nbsp;&nbsp;
-                <span className="monospace">↵</span> &nbsp;to
-                select&nbsp;&nbsp;&nbsp;&nbsp;
+                <span className="monospace">↑↓</span> to navigate&nbsp;&nbsp;&nbsp;&nbsp;
+                <span className="monospace">↵</span> &nbsp;to select&nbsp;&nbsp;&nbsp;&nbsp;
                 <span className="monospace">esc</span> to dismiss
               </div>
             </span>
@@ -336,27 +306,19 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
           </div>
           <ul>
             {matchedRequests.map((r, i) => {
-              const requestGroup = requestGroups.find(
-                rg => rg._id === r.parentId
-              );
+              const requestGroup = requestGroups.find(rg => rg._id === r.parentId);
               const buttonClasses = classnames(
                 'btn btn--expandable-small wide text-left pad-bottom',
-                { focus: activeIndex === i }
+                { focus: activeIndex === i },
               );
 
               return (
                 <li key={r._id}>
-                  <Button
-                    onClick={this._activateRequest}
-                    value={r}
-                    className={buttonClasses}>
+                  <Button onClick={this._activateRequest} value={r} className={buttonClasses}>
                     <div>
                       {requestGroup ? (
                         <div className="pull-right faint italic">
-                          <Highlight
-                            search={searchString}
-                            text={this._groupOf(r).join(' / ')}
-                          />
+                          <Highlight search={searchString} text={this._groupOf(r).join(' / ')} />
                           &nbsp;&nbsp;
                           <i className="fa fa-folder-o" />
                         </div>
@@ -380,20 +342,15 @@ class RequestSwitcherModal extends React.PureComponent<Props, State> {
               )}
 
             {matchedWorkspaces.map((w, i) => {
-              const buttonClasses = classnames(
-                'btn btn--super-compact wide text-left',
-                { focus: activeIndex - matchedRequests.length === i }
-              );
+              const buttonClasses = classnames('btn btn--super-compact wide text-left', {
+                focus: activeIndex - matchedRequests.length === i,
+              });
 
               return (
                 <li key={w._id}>
-                  <Button
-                    onClick={this._activateWorkspace}
-                    value={w}
-                    className={buttonClasses}>
+                  <Button onClick={this._activateWorkspace} value={w} className={buttonClasses}>
                     <i className="fa fa-random" />
-                    &nbsp;&nbsp;&nbsp; Switch to{' '}
-                    <strong>{(w: any).name}</strong>
+                    &nbsp;&nbsp;&nbsp; Switch to <strong>{(w: any).name}</strong>
                   </Button>
                 </li>
               );

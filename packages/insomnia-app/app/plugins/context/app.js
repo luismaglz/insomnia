@@ -2,14 +2,9 @@
 import * as electron from 'electron';
 import { showAlert, showPrompt } from '../../ui/components/modals/index';
 import type { RenderPurpose } from '../../common/render';
-import {
-  RENDER_PURPOSE_GENERAL,
-  RENDER_PURPOSE_SEND
-} from '../../common/render';
+import { RENDER_PURPOSE_GENERAL, RENDER_PURPOSE_SEND } from '../../common/render';
 
-export function init(
-  renderPurpose: RenderPurpose = RENDER_PURPOSE_GENERAL
-): { app: Object } {
+export function init(renderPurpose: RenderPurpose = RENDER_PURPOSE_GENERAL): { app: Object } {
   return {
     app: {
       alert(title: string, message?: string): Promise<void> {
@@ -25,8 +20,8 @@ export function init(
           label?: string,
           defaultValue?: string,
           submitName?: string,
-          cancelable?: boolean
-        }
+          cancelable?: boolean,
+        },
       ): Promise<string> {
         options = options || {};
 
@@ -43,7 +38,7 @@ export function init(
             },
             onComplete(value: string) {
               resolve(value);
-            }
+            },
           });
         });
       },
@@ -55,9 +50,7 @@ export function init(
             throw new Error(`Unknown path name ${name}`);
         }
       },
-      async showSaveDialog(
-        options: { defaultPath?: string } = {}
-      ): Promise<string | null> {
+      async showSaveDialog(options: { defaultPath?: string } = {}): Promise<string | null> {
         if (renderPurpose !== RENDER_PURPOSE_SEND) {
           return Promise.resolve(null);
         }
@@ -66,14 +59,14 @@ export function init(
           const saveOptions = {
             title: 'Save File',
             buttonLabel: 'Save',
-            defaultPath: options.defaultPath
+            defaultPath: options.defaultPath,
           };
 
           electron.remote.dialog.showSaveDialog(saveOptions, filename => {
             resolve(filename || null);
           });
         });
-      }
-    }
+      },
+    },
   };
 }

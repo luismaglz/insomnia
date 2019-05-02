@@ -50,11 +50,17 @@ type Props = {
 
   // Other
   request: ?Request,
-  response: ?Response
+  response: ?Response,
 };
 
 @autobind
 class ResponsePane extends React.PureComponent<Props> {
+  _responseViewer: any;
+
+  _setResponseViewerRef(n: any) {
+    this._responseViewer = n;
+  }
+
   _handleGetResponseBody(): Buffer | null {
     if (!this.props.response) {
       return null;
@@ -77,10 +83,7 @@ class ResponsePane extends React.PureComponent<Props> {
     const options = {
       title: 'Save Response Body',
       buttonLabel: 'Save',
-      defaultPath: `${request.name.replace(
-        / +/g,
-        '_'
-      )}-${Date.now()}.${extension}`
+      defaultPath: `${request.name.replace(/ +/g, '_')}-${Date.now()}.${extension}`,
     };
 
     remote.dialog.showSaveDialog(options, outputPath => {
@@ -116,7 +119,7 @@ class ResponsePane extends React.PureComponent<Props> {
     const options = {
       title: 'Save Full Response',
       buttonLabel: 'Save',
-      defaultPath: `${request.name.replace(/ +/g, '_')}-${Date.now()}.txt`
+      defaultPath: `${request.name.replace(/ +/g, '_')}-${Date.now()}.txt`,
     };
 
     remote.dialog.showSaveDialog(options, filename => {
@@ -134,6 +137,17 @@ class ResponsePane extends React.PureComponent<Props> {
         });
       }
     });
+  }
+
+  _handleTabSelect(index: number, lastIndex: number) {
+    if (this._responseViewer != null && index === 0 && index !== lastIndex) {
+      // Fix for CodeMirror editor not updating its content.
+      // Refresh must be called when the editor is visible,
+      // so use nextTick to give time for it to be visible.
+      process.nextTick(() => {
+        this._responseViewer.refresh();
+      });
+    }
   }
 
   render() {
@@ -155,7 +169,7 @@ class ResponsePane extends React.PureComponent<Props> {
       editorKeyMap,
       filter,
       filterHistory,
-      showCookiesModal
+      showCookiesModal,
     } = this.props;
 
     const paneClasses = 'response-pane theme--pane pane';
@@ -216,10 +230,7 @@ class ResponsePane extends React.PureComponent<Props> {
             </div>
           </div>
 
-          <ResponseTimer
-            handleCancel={cancelCurrentRequest}
-            loadStartTime={loadStartTime}
-          />
+          <ResponseTimer handleCancel={cancelCurrentRequest} loadStartTime={loadStartTime} />
         </section>
       );
     }
@@ -231,15 +242,9 @@ class ResponsePane extends React.PureComponent<Props> {
         {!response ? null : (
           <header className={paneHeaderClasses + ' row-spaced'}>
             <div className="no-wrap scrollable scrollable--no-bars pad-left">
-              <StatusTag
-                statusCode={response.statusCode}
-                statusMessage={response.statusMessage}
-              />
+              <StatusTag statusCode={response.statusCode} statusMessage={response.statusMessage} />
               <TimeTag milliseconds={response.elapsedTime} />
-              <SizeTag
-                bytesRead={response.bytesRead}
-                bytesContent={response.bytesContent}
-              />
+              <SizeTag bytesRead={response.bytesRead} bytesContent={response.bytesContent} />
             </div>
             <ResponseHistoryDropdown
               activeResponse={response}
@@ -254,9 +259,12 @@ class ResponsePane extends React.PureComponent<Props> {
             />
           </header>
         )}
-        <Tabs className={paneBodyClasses + ' react-tabs'} forceRenderTabPanel>
+        <Tabs
+          className={paneBodyClasses + ' react-tabs'}
+          onSelect={this._handleTabSelect}
+          forceRenderTabPanel>
           <TabList>
-            <Tab>
+            <Tab tabIndex="-1">
               <PreviewModeDropdown
                 download={this._handleDownloadResponseBody}
                 fullDownload={this._handleDownloadFullResponseBody}
@@ -264,7 +272,7 @@ class ResponsePane extends React.PureComponent<Props> {
                 updatePreviewMode={handleSetPreviewMode}
               />
             </Tab>
-            <Tab>
+            <Tab tabIndex="-1">
               <Button>
                 Header{' '}
                 {response.headers.length > 0 && (
@@ -272,7 +280,7 @@ class ResponsePane extends React.PureComponent<Props> {
                 )}
               </Button>
             </Tab>
-            <Tab>
+            <Tab tabIndex="-1">
               <Button>
                 Cookie{' '}
                 {cookieHeaders.length ? (
@@ -280,12 +288,13 @@ class ResponsePane extends React.PureComponent<Props> {
                 ) : null}
               </Button>
             </Tab>
-            <Tab>
+            <Tab tabIndex="-1">
               <Button>Timeline</Button>
             </Tab>
           </TabList>
           <TabPanel className="react-tabs__tab-panel">
             <ResponseViewer
+              ref={this._setResponseViewerRef}
               // Send larger one because legacy responses have bytesContent === -1
               responseId={response._id}
               bytes={Math.max(response.bytesContent, response.bytesRead)}
@@ -306,18 +315,14 @@ class ResponsePane extends React.PureComponent<Props> {
           </TabPanel>
           <TabPanel className="react-tabs__tab-panel scrollable-container">
             <div className="scrollable pad">
-              <ErrorBoundary
-                key={response._id}
-                errorClassName="font-error pad text-center">
+              <ErrorBoundary key={response._id} errorClassName="font-error pad text-center">
                 <ResponseHeadersViewer headers={response.headers} />
               </ErrorBoundary>
             </div>
           </TabPanel>
           <TabPanel className="react-tabs__tab-panel scrollable-container">
             <div className="scrollable pad">
-              <ErrorBoundary
-                key={response._id}
-                errorClassName="font-error pad text-center">
+              <ErrorBoundary key={response._id} errorClassName="font-error pad text-center">
                 <ResponseCookiesViewer
                   handleShowRequestSettings={handleShowRequestSettings}
                   cookiesSent={response.settingSendCookies}
@@ -329,9 +334,7 @@ class ResponsePane extends React.PureComponent<Props> {
             </div>
           </TabPanel>
           <TabPanel className="react-tabs__tab-panel">
-            <ErrorBoundary
-              key={response._id}
-              errorClassName="font-error pad text-center">
+            <ErrorBoundary key={response._id} errorClassName="font-error pad text-center">
               <ResponseTimelineViewer
                 timeline={response.timeline || []}
                 editorLineWrapping={editorLineWrapping}
@@ -342,10 +345,7 @@ class ResponsePane extends React.PureComponent<Props> {
           </TabPanel>
         </Tabs>
         <ErrorBoundary errorClassName="font-error pad text-center">
-          <ResponseTimer
-            handleCancel={cancelCurrentRequest}
-            loadStartTime={loadStartTime}
-          />
+          <ResponseTimer handleCancel={cancelCurrentRequest} loadStartTime={loadStartTime} />
         </ErrorBoundary>
       </section>
     );

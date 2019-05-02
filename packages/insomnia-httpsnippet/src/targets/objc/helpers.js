@@ -36,10 +36,7 @@ module.exports = {
    */
   nsDeclaration: function(nsClass, name, parameters, indent) {
     var opening = nsClass + ' *' + name + ' = ';
-    var literal = this.literalRepresentation(
-      parameters,
-      indent ? opening.length : undefined
-    );
+    var literal = this.literalRepresentation(parameters, indent ? opening.length : undefined);
     return opening + literal + ';';
   },
 
@@ -50,10 +47,7 @@ module.exports = {
    * @return {string}
    */
   literalRepresentation: function(value, indentation) {
-    var join =
-      indentation === undefined
-        ? ', '
-        : ',\n   ' + this.blankString(indentation);
+    var join = indentation === undefined ? ', ' : ',\n   ' + this.blankString(indentation);
 
     switch (Object.prototype.toString.call(value)) {
       case '[object Number]':
@@ -62,15 +56,13 @@ module.exports = {
         var values_representation = value.map(
           function(v) {
             return this.literalRepresentation(v);
-          }.bind(this)
+          }.bind(this),
         );
         return '@[ ' + values_representation.join(join) + ' ]';
       case '[object Object]':
         var keyValuePairs = [];
         for (var k in value) {
-          keyValuePairs.push(
-            util.format('@"%s": %s', k, this.literalRepresentation(value[k]))
-          );
+          keyValuePairs.push(util.format('@"%s": %s', k, this.literalRepresentation(value[k])));
         }
         return '@{ ' + keyValuePairs.join(join) + ' }';
       case '[object Boolean]':
@@ -78,5 +70,5 @@ module.exports = {
       default:
         return '@"' + value.toString().replace(/"/g, '\\"') + '"';
     }
-  }
+  },
 };

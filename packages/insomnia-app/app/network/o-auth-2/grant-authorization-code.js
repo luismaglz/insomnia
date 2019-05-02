@@ -1,10 +1,7 @@
 // @flow
 import { parse as urlParse } from 'url';
 import * as c from './constants';
-import {
-  buildQueryStringFromParams,
-  joinUrlAndQueryString
-} from 'insomnia-url';
+import { buildQueryStringFromParams, joinUrlAndQueryString } from 'insomnia-url';
 import { authorizeUserInWindow, responseToObject } from './misc';
 import { escapeRegex } from '../../common/misc';
 import * as models from '../../models/index';
@@ -20,7 +17,7 @@ export default async function(
   clientSecret: string,
   redirectUri: string = '',
   scope: string = '',
-  state: string = ''
+  state: string = '',
 ): Promise<Object> {
   if (!authorizeUrl) {
     throw new Error('Invalid authorization URL');
@@ -30,13 +27,7 @@ export default async function(
     throw new Error('Invalid access token URL');
   }
 
-  const authorizeResults = await _authorize(
-    authorizeUrl,
-    clientId,
-    redirectUri,
-    scope,
-    state
-  );
+  const authorizeResults = await _authorize(authorizeUrl, clientId, redirectUri, scope, state);
 
   // Handle the error
   if (authorizeResults[c.P_ERROR]) {
@@ -54,20 +45,14 @@ export default async function(
     clientSecret,
     authorizeResults[c.P_CODE],
     redirectUri,
-    state
+    state,
   );
 }
 
-async function _authorize(
-  url,
-  clientId,
-  redirectUri = '',
-  scope = '',
-  state = ''
-) {
+async function _authorize(url, clientId, redirectUri = '', scope = '', state = '') {
   const params = [
     { name: c.P_RESPONSE_TYPE, value: c.RESPONSE_TYPE_CODE },
-    { name: c.P_CLIENT_ID, value: clientId }
+    { name: c.P_CLIENT_ID, value: clientId },
   ];
 
   // Add optional params
@@ -81,11 +66,7 @@ async function _authorize(
   const successRegex = new RegExp(`${escapeRegex(redirectUri)}.*(code=)`, 'i');
   const failureRegex = new RegExp(`${escapeRegex(redirectUri)}.*(error=)`, 'i');
 
-  const redirectedTo = await authorizeUserInWindow(
-    finalUrl,
-    successRegex,
-    failureRegex
-  );
+  const redirectedTo = await authorizeUserInWindow(finalUrl, successRegex, failureRegex);
 
   console.log('[oauth2] Detected redirect ' + redirectedTo);
 
@@ -95,7 +76,7 @@ async function _authorize(
     c.P_STATE,
     c.P_ERROR,
     c.P_ERROR_DESCRIPTION,
-    c.P_ERROR_URI
+    c.P_ERROR_URI,
   ]);
 }
 
@@ -107,11 +88,11 @@ async function _getToken(
   clientSecret: string,
   code: string,
   redirectUri: string = '',
-  state: string = ''
+  state: string = '',
 ): Promise<Object> {
   const params = [
     { name: c.P_GRANT_TYPE, value: c.GRANT_TYPE_AUTHORIZATION_CODE },
-    { name: c.P_CODE, value: code }
+    { name: c.P_CODE, value: code },
   ];
 
   // Add optional params
@@ -122,8 +103,8 @@ async function _getToken(
     { name: 'Content-Type', value: 'application/x-www-form-urlencoded' },
     {
       name: 'Accept',
-      value: 'application/x-www-form-urlencoded, application/json'
-    }
+      value: 'application/x-www-form-urlencoded, application/json',
+    },
   ];
 
   if (credentialsInBody) {
@@ -137,7 +118,7 @@ async function _getToken(
     headers,
     url,
     method: 'POST',
-    body: models.request.newBodyFormUrlEncoded(params)
+    body: models.request.newBodyFormUrlEncoded(params),
   });
 
   const response = await models.response.create(responsePatch);
@@ -146,7 +127,7 @@ async function _getToken(
   if (!bodyBuffer) {
     return {
       [c.X_ERROR]: `No body returned from ${url}`,
-      [c.X_RESPONSE_ID]: response._id
+      [c.X_RESPONSE_ID]: response._id,
     };
   }
 
@@ -154,7 +135,7 @@ async function _getToken(
   if (statusCode < 200 || statusCode >= 300) {
     return {
       [c.X_ERROR]: `Failed to fetch token url=${url} status=${statusCode}`,
-      [c.X_RESPONSE_ID]: response._id
+      [c.X_RESPONSE_ID]: response._id,
     };
   }
 
@@ -166,7 +147,7 @@ async function _getToken(
     c.P_SCOPE,
     c.P_ERROR,
     c.P_ERROR_URI,
-    c.P_ERROR_DESCRIPTION
+    c.P_ERROR_DESCRIPTION,
   ]);
 
   results[c.X_RESPONSE_ID] = response._id;

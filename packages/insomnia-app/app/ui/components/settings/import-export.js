@@ -1,12 +1,7 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
-import {
-  Dropdown,
-  DropdownButton,
-  DropdownDivider,
-  DropdownItem
-} from '../base/dropdown';
+import { Dropdown, DropdownButton, DropdownDivider, DropdownItem } from '../base/dropdown';
 import Link from '../base/link';
 import { showPrompt } from '../modals/index';
 
@@ -20,16 +15,12 @@ class ImportExport extends PureComponent {
       placeholder: 'https://website.com/insomnia-import.json',
       onComplete: uri => {
         this.props.handleImportUri(uri);
-      }
+      },
     });
   }
 
   render() {
-    const {
-      handleImportFile,
-      handleExportAll,
-      handleExportWorkspace
-    } = this.props;
+    const { handleImportFile, handleExportAll, handleExportWorkspace } = this.props;
 
     return (
       <div>
@@ -75,9 +66,7 @@ class ImportExport extends PureComponent {
             </DropdownItem>
           </Dropdown>
         </div>
-        <p className="italic faint">
-          * Tip: You can also paste Curl commands into the URL bar
-        </p>
+        <p className="italic faint">* Tip: You can also paste Curl commands into the URL bar</p>
       </div>
     );
   }
@@ -87,7 +76,7 @@ ImportExport.propTypes = {
   handleImportFile: PropTypes.func.isRequired,
   handleImportUri: PropTypes.func.isRequired,
   handleExportAll: PropTypes.func.isRequired,
-  handleExportWorkspace: PropTypes.func.isRequired
+  handleExportWorkspace: PropTypes.func.isRequired,
 };
 
 export default ImportExport;

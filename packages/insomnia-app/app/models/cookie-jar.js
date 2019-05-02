@@ -22,12 +22,12 @@ export type Cookie = {
   creationIndex?: number,
   hostOnly?: boolean,
   pathIsDefault?: boolean,
-  lastAccessed?: Date
+  lastAccessed?: Date,
 };
 
 type BaseCookieJar = {
   name: string,
-  cookies: Array<Cookie>
+  cookies: Array<Cookie>,
 };
 
 export type CookieJar = BaseModel & BaseCookieJar;
@@ -35,7 +35,7 @@ export type CookieJar = BaseModel & BaseCookieJar;
 export function init() {
   return {
     name: 'Default Jar',
-    cookies: []
+    cookies: [],
   };
 }
 
@@ -46,9 +46,7 @@ export function migrate(doc: CookieJar): CookieJar {
 
 export function create(patch: Object = {}) {
   if (!patch.parentId) {
-    throw new Error(
-      `New CookieJar missing \`parentId\`: ${JSON.stringify(patch)}`
-    );
+    throw new Error(`New CookieJar missing \`parentId\`: ${JSON.stringify(patch)}`);
   }
 
   return db.docCreate(type, patch);

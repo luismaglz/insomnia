@@ -7,15 +7,13 @@ class VariableEditor extends PureComponent {
   constructor(props) {
     super(props);
 
-    const inner = props.defaultValue
-      .replace(/\s*}}$/, '')
-      .replace(/^{{\s*/, '');
+    const inner = props.defaultValue.replace(/\s*}}$/, '').replace(/^{{\s*/, '');
 
     this.state = {
       variables: [],
       value: `{{ ${inner} }}`,
       preview: '',
-      error: ''
+      error: '',
     };
   }
 
@@ -39,7 +37,12 @@ class VariableEditor extends PureComponent {
 
   async _update(value, noCallback = false) {
     const { handleRender } = this.props;
-
+    const cleanedValue = value
+      .replace(/^{%/, '')
+      .replace(/%}$/, '')
+      .replace(/^{{/, '')
+      .replace(/}}$/, '')
+      .trim();
     let preview = '';
     let error = '';
 
@@ -51,10 +54,10 @@ class VariableEditor extends PureComponent {
 
     const context = await this.props.handleGetRenderContext();
     const variables = context.keys;
-
+    const variableSource = context.context.getKeysContext().keyContext[cleanedValue] || '';
     // Hack to skip updating if we unmounted for some reason
     if (this._select) {
-      this.setState({ preview, error, variables, value });
+      this.setState({ preview, error, variables, value, variableSource });
     }
 
     // Call the callback if we need to
@@ -64,21 +67,15 @@ class VariableEditor extends PureComponent {
   }
 
   render() {
-    const { error, value, preview, variables } = this.state;
+    const { error, value, preview, variables, variableSource } = this.state;
     const isOther = !variables.find(v => value === `{{ ${v.name} }}`);
-
     return (
       <div>
         <div className="form-control form-control--outlined">
           <label>
             Environment Variable
-            <select
-              ref={this._setSelectRef}
-              value={value}
-              onChange={this._handleChange}>
-              <option value={`{{ 'my custom template logic' | urlencode }}`}>
-                -- Custom --
-              </option>
+            <select ref={this._setSelectRef} value={value} onChange={this._handleChange}>
+              <option value={`{{ 'my custom template logic' | urlencode }}`}>-- Custom --</option>
               {variables.map((v, i) => (
                 <option key={`${i}::${v.name}`} value={`{{ ${v.name} }}`}>
                   {v.name}
@@ -89,16 +86,12 @@ class VariableEditor extends PureComponent {
         </div>
         {isOther && (
           <div className="form-control form-control--outlined">
-            <input
-              type="text"
-              defaultValue={value}
-              onChange={this._handleChange}
-            />
+            <input type="text" defaultValue={value} onChange={this._handleChange} />
           </div>
         )}
         <div className="form-control form-control--outlined">
           <label>
-            Live Preview
+            Live Preview {variableSource && ` - {source: ${variableSource} }`}
             {error ? (
               <textarea className="danger" value={error || 'Error'} readOnly />
             ) : (
@@ -115,7 +108,7 @@ VariableEditor.propTypes = {
   handleRender: PropTypes.func.isRequired,
   handleGetRenderContext: PropTypes.func.isRequired,
   defaultValue: PropTypes.string.isRequired,
-  onChange: PropTypes.func.isRequired
+  onChange: PropTypes.func.isRequired,
 };
 
 export default VariableEditor;

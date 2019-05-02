@@ -63,10 +63,7 @@ class Curl extends EventEmitter {
   getInfo(name) {
     switch (name) {
       case Curl.info.COOKIELIST:
-        return [
-          `#HttpOnly_.insomnia.rest\tTRUE\t/url/path\tTRUE\t${Date.now() /
-            1000}\tfoo\tbar`
-        ];
+        return [`#HttpOnly_.insomnia.rest\tTRUE\t/url/path\tTRUE\t${Date.now() / 1000}\tfoo\tbar`];
       case Curl.info.EFFECTIVE_URL:
         return this._options[Curl.option.URL];
       case Curl.info.TOTAL_TIME:
@@ -84,8 +81,8 @@ class Curl extends EventEmitter {
         JSON.stringify({
           options: this._options,
           meta: this._meta,
-          features: this._features
-        })
+          features: this._features,
+        }),
       );
 
       this.emit('data', data);
@@ -100,8 +97,8 @@ class Curl extends EventEmitter {
             'HTTP/1.1 200 OK',
             `Content-Length: ${data.length}`,
             'Content-Type: application/json',
-            ''
-          ].join('\n')
+            '',
+          ].join('\n'),
         );
       });
     });
@@ -120,23 +117,23 @@ Curl.info = {
     DATA_OUT: 'DATA_OUT',
     SSL_DATA_IN: 'SSL_DATA_IN',
     SSL_DATA_OUT: 'SSL_DATA_OUT',
-    TEXT: 'TEXT'
-  }
+    TEXT: 'TEXT',
+  },
 };
 
 Curl.auth = {
-  ANY: 'ANY'
+  ANY: 'ANY',
 };
 
 Curl.netrc = {
   IGNORED: 0,
   OPTIONAL: 1,
-  REQUIRED: 2
+  REQUIRED: 2,
 };
 
 Curl.feature = {
   NO_HEADER_PARSING: 'NO_HEADER_PARSING',
-  NO_DATA_PARSING: 'NO_DATA_PARSING'
+  NO_DATA_PARSING: 'NO_DATA_PARSING',
 };
 
 Curl.option = {
@@ -178,9 +175,9 @@ Curl.option = {
   USERNAME: 'USERNAME',
   VERBOSE: 'VERBOSE',
   WRITEFUNCTION: 'WRITEFUNCTION',
-  XFERINFOFUNCTION: 'XFERINFOFUNCTION'
+  XFERINFOFUNCTION: 'XFERINFOFUNCTION',
 };
 
 module.exports = {
-  Curl: Curl
+  Curl: Curl,
 };

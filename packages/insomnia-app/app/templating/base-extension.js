@@ -64,14 +64,10 @@ export default class BaseExtension {
     const renderMeta = renderContext.getMeta ? renderContext.getMeta() : {};
 
     // Pull out the purpose
-    const renderPurpose = renderContext.getPurpose
-      ? renderContext.getPurpose()
-      : null;
+    const renderPurpose = renderContext.getPurpose ? renderContext.getPurpose() : null;
 
     // Extract the rest of the args
-    const args = runArgs
-      .slice(0, runArgs.length - 1)
-      .filter(a => a !== EMPTY_ARG);
+    const args = runArgs.slice(0, runArgs.length - 1).filter(a => a !== EMPTY_ARG);
 
     // Define a helper context with utils
     const helperContext = {
@@ -87,24 +83,24 @@ export default class BaseExtension {
             getAncestors: async request => {
               const ancestors = await db.withAncestors(request, [
                 models.requestGroup.type,
-                models.workspace.type
+                models.workspace.type,
               ]);
               return ancestors.filter(doc => doc._id !== request._id);
-            }
+            },
           },
           workspace: { getById: models.workspace.getById },
           oAuth2Token: { getByRequestId: models.oAuth2Token.getByParentId },
           cookieJar: {
             getOrCreateForWorkspace: workspace => {
               return models.cookieJar.getOrCreateForParentId(workspace._id);
-            }
+            },
           },
           response: {
             getLatestForRequestId: models.response.getLatestForRequest,
-            getBodyBuffer: models.response.getBodyBuffer
-          }
-        }
-      }
+            getBodyBuffer: models.response.getBodyBuffer,
+          },
+        },
+      },
     };
 
     let result;

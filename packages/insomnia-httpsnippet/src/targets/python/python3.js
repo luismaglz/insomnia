@@ -20,13 +20,9 @@ module.exports = function(source, options) {
   // Check which protocol to be used for the client connection
   var protocol = source.uriObj.protocol;
   if (protocol === 'https:') {
-    code
-      .push('conn = http.client.HTTPSConnection("%s")', source.uriObj.host)
-      .blank();
+    code.push('conn = http.client.HTTPSConnection("%s")', source.uriObj.host).blank();
   } else {
-    code
-      .push('conn = http.client.HTTPConnection("%s")', source.uriObj.host)
-      .blank();
+    code.push('conn = http.client.HTTPConnection("%s")', source.uriObj.host).blank();
   }
 
   // Create payload string if it exists
@@ -87,5 +83,5 @@ module.exports.info = {
   key: 'python3',
   title: 'http.client',
   link: 'https://docs.python.org/3/library/http.client.html',
-  description: 'Python3 HTTP Client'
+  description: 'Python3 HTTP Client',
 };

@@ -11,7 +11,7 @@ type ThemeBlock = {
     warning?: string,
     danger?: string,
     surprise?: string,
-    info?: string
+    info?: string,
   },
   foreground?: {
     default: string,
@@ -20,7 +20,7 @@ type ThemeBlock = {
     warning?: string,
     danger?: string,
     surprise?: string,
-    info?: string
+    info?: string,
   },
   highlight?: {
     default: string,
@@ -29,8 +29,8 @@ type ThemeBlock = {
     sm?: string,
     md?: string,
     lg?: string,
-    xl?: string
-  }
+    xl?: string,
+  },
 };
 
 type ThemeInner = {
@@ -50,14 +50,14 @@ type ThemeInner = {
     dialogHeader?: ThemeBlock,
     dialogFooter?: ThemeBlock,
     transparentOverlay?: ThemeBlock,
-    link?: ThemeBlock
-  }
+    link?: ThemeBlock,
+  },
 };
 
 export type PluginTheme = {
   name: string,
   displayName: string,
-  theme: ThemeInner
+  theme: ThemeInner,
 };
 
 export async function generateThemeCSS(theme: PluginTheme): Promise<string> {
@@ -66,7 +66,7 @@ export async function generateThemeCSS(theme: PluginTheme): Promise<string> {
     theme.theme,
     null,
     THROW_ON_ERROR,
-    theme.name
+    theme.name,
   );
   const n = theme.name;
 
@@ -77,16 +77,8 @@ export async function generateThemeCSS(theme: PluginTheme): Promise<string> {
     const styles = renderedTheme.styles;
 
     // Dropdown Menus
-    css += wrapStyles(
-      n,
-      '.theme--dropdown__menu',
-      getThemeBlockCSS(styles.dialog)
-    );
-    css += wrapStyles(
-      n,
-      '.theme--dropdown__menu',
-      getThemeBlockCSS(styles.dropdown)
-    );
+    css += wrapStyles(n, '.theme--dropdown__menu', getThemeBlockCSS(styles.dialog));
+    css += wrapStyles(n, '.theme--dropdown__menu', getThemeBlockCSS(styles.dropdown));
 
     // Tooltips
     css += wrapStyles(n, '.theme--tooltip', getThemeBlockCSS(styles.dialog));
@@ -96,42 +88,22 @@ export async function generateThemeCSS(theme: PluginTheme): Promise<string> {
     css += wrapStyles(
       n,
       '.theme--transparent-overlay',
-      getThemeBlockCSS(styles.transparentOverlay)
+      getThemeBlockCSS(styles.transparentOverlay),
     );
 
     // Dialogs
     css += wrapStyles(n, '.theme--dialog', getThemeBlockCSS(styles.dialog));
-    css += wrapStyles(
-      n,
-      '.theme--dialog__header',
-      getThemeBlockCSS(styles.dialogHeader)
-    );
-    css += wrapStyles(
-      n,
-      '.theme--dialog__footer',
-      getThemeBlockCSS(styles.dialogFooter)
-    );
+    css += wrapStyles(n, '.theme--dialog__header', getThemeBlockCSS(styles.dialogHeader));
+    css += wrapStyles(n, '.theme--dialog__footer', getThemeBlockCSS(styles.dialogFooter));
 
     // Panes
     css += wrapStyles(n, '.theme--pane', getThemeBlockCSS(styles.pane));
-    css += wrapStyles(
-      n,
-      '.theme--pane__header',
-      getThemeBlockCSS(styles.paneHeader)
-    );
+    css += wrapStyles(n, '.theme--pane__header', getThemeBlockCSS(styles.paneHeader));
 
     // Sidebar Styles
     css += wrapStyles(n, '.theme--sidebar', getThemeBlockCSS(styles.sidebar));
-    css += wrapStyles(
-      n,
-      '.theme--sidebar__list',
-      getThemeBlockCSS(styles.sidebarList)
-    );
-    css += wrapStyles(
-      n,
-      '.theme--sidebar__header',
-      getThemeBlockCSS(styles.sidebarHeader)
-    );
+    css += wrapStyles(n, '.theme--sidebar__list', getThemeBlockCSS(styles.sidebarList));
+    css += wrapStyles(n, '.theme--sidebar__header', getThemeBlockCSS(styles.sidebarHeader));
 
     // Link
     css += wrapStyles(n, '.theme--link', getThemeBlockCSS(styles.link));
@@ -219,7 +191,7 @@ function wrapStyles(theme: string, selector: string, styles: string) {
     styles,
     '}',
     '',
-    ''
+    '',
   ].join('\n');
 }
 
@@ -257,4 +229,21 @@ export async function setTheme(themeName: string) {
 
     s.innerHTML = themeCSS;
   }
+}
+
+export async function setFont(settings: Object) {
+  if (!document) {
+    return;
+  }
+
+  const html = document.querySelector('html');
+
+  if (!html) {
+    return;
+  }
+
+  html.style.setProperty('--font-default', settings.fontInterface);
+  html.style.setProperty('--font-monospace', settings.fontMonospace);
+  html.style.setProperty('--font-ligatures', settings.fontVariantLigatures ? 'normal' : 'none');
+  html.style.setProperty('font-size', `${settings.fontSize}px`);
 }

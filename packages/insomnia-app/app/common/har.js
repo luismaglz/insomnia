@@ -26,19 +26,19 @@ export type HarCookie = {
   expires?: string,
   httpOnly?: boolean,
   secure?: boolean,
-  comment?: string
+  comment?: string,
 };
 
 export type HarHeader = {
   name: string,
   value: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarQueryString = {
   name: string,
   value: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarPostParam = {
@@ -46,14 +46,14 @@ export type HarPostParam = {
   value?: string,
   fileName?: string,
   contentType?: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarPostData = {
   mimeType: string,
   params: Array<HarPostParam>,
   text: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarRequest = {
@@ -67,7 +67,7 @@ export type HarRequest = {
   headersSize: number,
   bodySize: number,
   comment?: string,
-  settingEncodeUrl: boolean
+  settingEncodeUrl: boolean,
 };
 
 export type HarContent = {
@@ -76,7 +76,7 @@ export type HarContent = {
   mimeType: string,
   text?: string,
   encoding?: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarResponse = {
@@ -89,7 +89,7 @@ export type HarResponse = {
   redirectURL: string,
   headersSize: number,
   bodySize: number,
-  comment?: string
+  comment?: string,
 };
 
 export type HarRequestCache = {
@@ -97,13 +97,13 @@ export type HarRequestCache = {
   lastAccess: string,
   eTag: string,
   hitCount: number,
-  comment?: string
+  comment?: string,
 };
 
 export type HarCache = {
   beforeRequest?: HarRequestCache,
   afterRequest?: HarRequestCache,
-  comment?: string
+  comment?: string,
 };
 
 export type HarEntryTimings = {
@@ -114,7 +114,7 @@ export type HarEntryTimings = {
   wait: number,
   receive: number,
   ssl?: number,
-  comment?: string
+  comment?: string,
 };
 
 export type HarEntry = {
@@ -127,13 +127,13 @@ export type HarEntry = {
   timings: HarEntryTimings,
   serverIPAddress?: string,
   connection?: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarPageTimings = {
   onContentLoad?: number,
   onLoad?: number,
-  comment?: string
+  comment?: string,
 };
 
 export type HarPage = {
@@ -141,19 +141,19 @@ export type HarPage = {
   id: string,
   title: string,
   pageTimings: HarPageTimings,
-  comment?: string
+  comment?: string,
 };
 
 export type HarCreator = {
   name: string,
   version: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarBrowser = {
   name: string,
   version: string,
-  comment?: string
+  comment?: string,
 };
 
 export type HarLog = {
@@ -162,42 +162,35 @@ export type HarLog = {
   browser?: HarBrowser,
   pages?: Array<HarPage>,
   entries: Array<HarEntry>,
-  comment?: string
+  comment?: string,
 };
 
 export type Har = {
-  log: HarLog
+  log: HarLog,
 };
 
 export type ExportRequest = {
   requestId: string,
-  environmentId: string
+  environmentId: string,
 };
 
-export async function exportHar(
-  exportRequests: Array<ExportRequest>
-): Promise<Har> {
+export async function exportHar(exportRequests: Array<ExportRequest>): Promise<Har> {
   // Export HAR entries with the same start time in order to keep their workspace sort order.
   const startedDateTime = new Date().toISOString();
   const entries: Array<HarEntry> = [];
   for (let exportRequest of exportRequests) {
-    const request: Request | null = await models.request.getById(
-      exportRequest.requestId
-    );
+    const request: Request | null = await models.request.getById(exportRequest.requestId);
     if (!request) {
       continue;
     }
 
-    const harRequest = await exportHarWithRequest(
-      request,
-      exportRequest.environmentId
-    );
+    const harRequest = await exportHarWithRequest(request, exportRequest.environmentId);
     if (!harRequest) {
       continue;
     }
 
     const response: ResponseModel | null = await models.response.getLatestForRequest(
-      exportRequest.requestId
+      exportRequest.requestId,
     );
     const harResponse = await exportHarResponse(response);
     if (!harResponse) {
@@ -217,9 +210,9 @@ export async function exportHar(
         send: 0,
         wait: response ? response.elapsedTime : 0,
         receive: 0,
-        ssl: -1
+        ssl: -1,
       },
-      comment: request.name
+      comment: request.name,
     };
 
     entries.push(entry);
@@ -230,16 +223,14 @@ export async function exportHar(
       version: '1.2',
       creator: {
         name: 'Insomnia REST Client',
-        version: `insomnia.desktop.app:v${getAppVersion()}`
+        version: `insomnia.desktop.app:v${getAppVersion()}`,
       },
-      entries: entries
-    }
+      entries: entries,
+    },
   };
 }
 
-export async function exportHarResponse(
-  response: ResponseModel | null
-): Promise<HarResponse> {
+export async function exportHarResponse(response: ResponseModel | null): Promise<HarResponse> {
   if (!response) {
     return {
       status: 0,
@@ -249,11 +240,11 @@ export async function exportHarResponse(
       headers: [],
       content: {
         size: 0,
-        mimeType: ''
+        mimeType: '',
       },
       redirectURL: '',
       headersSize: -1,
-      bodySize: -1
+      bodySize: -1,
     };
   }
 
@@ -266,14 +257,14 @@ export async function exportHarResponse(
     content: getResponseContent(response),
     redirectURL: '',
     headersSize: -1,
-    bodySize: -1
+    bodySize: -1,
   };
 }
 
 export async function exportHarRequest(
   requestId: string,
   environmentId: string,
-  addContentLength: boolean = false
+  addContentLength: boolean = false,
 ): Promise<HarRequest | null> {
   const request = await models.request.getById(requestId);
   if (!request) {
@@ -286,34 +277,27 @@ export async function exportHarRequest(
 export async function exportHarWithRequest(
   request: Request,
   environmentId: string,
-  addContentLength: boolean = false
+  addContentLength: boolean = false,
 ): Promise<HarRequest | null> {
   try {
-    const renderResult = await getRenderedRequestAndContext(
-      request,
-      environmentId
-    );
+    const renderResult = await getRenderedRequestAndContext(request, environmentId);
     const renderedRequest = await _applyRequestPluginHooks(
       renderResult.request,
-      renderResult.context
+      renderResult.context,
     );
     return exportHarWithRenderedRequest(renderedRequest, addContentLength);
   } catch (err) {
     if (err instanceof RenderError) {
-      throw new Error(
-        `Failed to render "${request.name}:${err.path}"\n ${err.message}`
-      );
+      throw new Error(`Failed to render "${request.name}:${err.path}"\n ${err.message}`);
     } else {
-      throw new Error(
-        `Failed to export request "${request.name}"\n ${err.message}`
-      );
+      throw new Error(`Failed to export request "${request.name}"\n ${err.message}`);
     }
   }
 }
 
 async function _applyRequestPluginHooks(
   renderedRequest: RenderedRequest,
-  renderedContext: Object
+  renderedContext: Object,
 ): Promise<RenderedRequest> {
   let newRenderedRequest = renderedRequest;
   for (const { plugin, hook } of await plugins.getRequestHooks()) {
@@ -322,7 +306,7 @@ async function _applyRequestPluginHooks(
     const context = {
       ...pluginContexts.app.init(),
       ...pluginContexts.request.init(newRenderedRequest, renderedContext),
-      ...pluginContexts.store.init(plugin)
+      ...pluginContexts.store.init(plugin),
     };
 
     try {
@@ -338,12 +322,9 @@ async function _applyRequestPluginHooks(
 
 export async function exportHarWithRenderedRequest(
   renderedRequest: RenderedRequest,
-  addContentLength: boolean = false
+  addContentLength: boolean = false,
 ): Promise<HarRequest> {
-  const url = smartEncodeUrl(
-    renderedRequest.url,
-    renderedRequest.settingEncodeUrl
-  );
+  const url = smartEncodeUrl(renderedRequest.url, renderedRequest.settingEncodeUrl);
 
   if (addContentLength) {
     const hasContentLengthHeader =
@@ -351,9 +332,7 @@ export async function exportHarWithRenderedRequest(
 
     if (!hasContentLengthHeader) {
       const name = 'Content-Length';
-      const value = Buffer.byteLength(
-        (renderedRequest.body || {}).text || ''
-      ).toString();
+      const value = Buffer.byteLength((renderedRequest.body || {}).text || '').toString();
       renderedRequest.headers.push({ name, value });
     }
   }
@@ -364,12 +343,12 @@ export async function exportHarWithRenderedRequest(
       renderedRequest._id,
       url,
       renderedRequest.method,
-      renderedRequest.authentication
+      renderedRequest.authentication,
     );
     if (header) {
       renderedRequest.headers.push({
         name: header.name,
-        value: header.value
+        value: header.value,
       });
     }
   }
@@ -384,7 +363,7 @@ export async function exportHarWithRenderedRequest(
     postData: getRequestPostData(renderedRequest),
     headersSize: -1,
     bodySize: -1,
-    settingEncodeUrl: renderedRequest.settingEncodeUrl
+    settingEncodeUrl: renderedRequest.settingEncodeUrl,
   };
 }
 
@@ -414,7 +393,7 @@ function getReponseCookies(response: ResponseModel): Array<HarCookie> {
 function mapCookie(cookie: Cookie): HarCookie {
   const harCookie: HarCookie = {
     name: cookie.key,
-    value: cookie.value
+    value: cookie.value,
   };
 
   if (cookie.path) {
@@ -462,7 +441,7 @@ function getResponseContent(response: ResponseModel): HarContent {
   return {
     size: body.byteLength,
     mimeType: response.contentType,
-    text: body.toString('utf8')
+    text: body.toString('utf8'),
   };
 }
 
@@ -470,7 +449,7 @@ function getResponseHeaders(response: ResponseModel): Array<HarHeader> {
   return response.headers.filter(header => header.name).map(h => {
     return {
       name: h.name,
-      value: h.value
+      value: h.value,
     };
   });
 }
@@ -479,31 +458,25 @@ function getRequestHeaders(renderedRequest: RenderedRequest): Array<HarHeader> {
   return renderedRequest.headers.filter(header => header.name).map(header => {
     return {
       name: header.name,
-      value: header.value
+      value: header.value,
     };
   });
 }
 
-function getRequestQueryString(
-  renderedRequest: RenderedRequest
-): Array<HarQueryString> {
+function getRequestQueryString(renderedRequest: RenderedRequest): Array<HarQueryString> {
   return renderedRequest.parameters.map(parameter => {
     return {
       name: parameter.name,
-      value: parameter.value
+      value: parameter.value,
     };
   });
 }
 
-function getRequestPostData(
-  renderedRequest: RenderedRequest
-): HarPostData | void {
+function getRequestPostData(renderedRequest: RenderedRequest): HarPostData | void {
   let body;
   if (renderedRequest.body.fileName) {
     try {
-      body = newBodyRaw(
-        fs.readFileSync(renderedRequest.body.fileName, 'base64')
-      );
+      body = newBodyRaw(fs.readFileSync(renderedRequest.body.fileName, 'base64'));
     } catch (e) {
       console.warn('[code gen] Failed to read file', e);
       return undefined;
@@ -518,7 +491,7 @@ function getRequestPostData(
     params = body.params.map(param => {
       return {
         name: param.name,
-        value: param.value
+        value: param.value,
       };
     });
   }
@@ -526,6 +499,6 @@ function getRequestPostData(
   return {
     mimeType: body.mimeType || '',
     text: body.text || '',
-    params: params
+    params: params,
   };
 }

@@ -31,6 +31,12 @@ module.exports.convert = function(rawData) {
     if (typeof arg === 'object' && arg.op === ';') {
       commands.push(currentCommand);
       currentCommand = [];
+    } else if (typeof arg === 'object' && arg.op.length > 1 && arg.op.indexOf('$') === 0) {
+      if (arg.op[1] === "'") {
+        // Handle the case where literal like -H $'Header: \'Some Quoted Thing\''
+        const str = arg.op.slice(2, arg.op.length - 1).replace(/\\'/g, "'");
+        currentCommand.push(str);
+      }
     } else if (typeof arg === 'object' && arg.op === 'glob') {
       currentCommand.push(arg.pattern);
     } else if (typeof arg === 'object') {
@@ -100,20 +106,14 @@ function importArgs(args) {
   const url = getPairValue(pairs, singletons[0] || '', 'url');
 
   // Authentication
-  const [username, password] = getPairValue(pairs, '', 'u', 'user').split(
-    /:(.*)$/
-  );
-  const authentication = username
-    ? { username: username.trim(), password: password.trim() }
-    : {};
+  const [username, password] = getPairValue(pairs, '', 'u', 'user').split(/:(.*)$/);
+  const authentication = username ? { username: username.trim(), password: password.trim() } : {};
 
   // Headers
-  const headers = [...(pairs['header'] || []), ...(pairs['H'] || [])].map(
-    str => {
-      const [name, value] = str.split(/:(.*)$/);
-      return { name: name.trim(), value: value.trim() };
-    }
-  );
+  const headers = [...(pairs['header'] || []), ...(pairs['H'] || [])].map(str => {
+    const [name, value] = str.split(/:(.*)$/);
+    return { name: name.trim(), value: value.trim() };
+  });
 
   // Cookies
   const cookieHeaderValue = [...(pairs.cookie || []), ...(pairs.b || [])]
@@ -125,9 +125,7 @@ function importArgs(args) {
     .join('; ');
 
   // Convert cookie value to header
-  const existingCookieHeader = headers.find(
-    h => h.name.toLowerCase() === 'cookie'
-  );
+  const existingCookieHeader = headers.find(h => h.name.toLowerCase() === 'cookie');
   if (cookieHeaderValue && existingCookieHeader) {
     // Has existing cookie header, so let's update it
     existingCookieHeader.value += `; ${cookieHeaderValue}`;
@@ -146,31 +144,25 @@ function importArgs(args) {
     'data-raw',
     'data-urlencode',
     'data-binary',
-    'data-ascii'
+    'data-ascii',
   );
-  const contentTypeHeader = headers.find(
-    h => h.name.toLowerCase() === 'content-type'
-  );
-  const mimeType = contentTypeHeader
-    ? contentTypeHeader.value.split(';')[0]
-    : null;
+  const contentTypeHeader = headers.find(h => h.name.toLowerCase() === 'content-type');
+  const mimeType = contentTypeHeader ? contentTypeHeader.value.split(';')[0] : null;
 
   // Body (Multipart Form Data)
-  const formDataParams = [...(pairs['form'] || []), ...(pairs['F'] || [])].map(
-    str => {
-      const [name, value] = str.split('=');
-      const item = { name };
+  const formDataParams = [...(pairs['form'] || []), ...(pairs['F'] || [])].map(str => {
+    const [name, value] = str.split('=');
+    const item = { name };
 
-      if (value.indexOf('@') === 0) {
-        item.fileName = value.slice(1);
-        item.type = 'file';
-      } else {
-        item.value = value;
-        item.type = 'text';
-      }
-      return item;
+    if (value.indexOf('@') === 0) {
+      item.fileName = value.slice(1);
+      item.type = 'file';
+    } else {
+      item.value = value;
+      item.type = 'text';
     }
-  );
+    return item;
+  });
 
   // Body
   let parameters = [];
@@ -210,7 +202,7 @@ function importArgs(args) {
     method,
     headers,
     authentication,
-    body
+    body,
   };
 }
 

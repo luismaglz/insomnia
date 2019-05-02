@@ -9,10 +9,7 @@ class MethodTag extends PureComponent {
     let methodName = method;
 
     if (!fullNames) {
-      if (
-        method === constants.METHOD_DELETE ||
-        method === constants.METHOD_OPTIONS
-      ) {
+      if (method === constants.METHOD_DELETE || method === constants.METHOD_OPTIONS) {
         methodName = method.slice(0, 3);
       } else if (method.length > 4) {
         methodName = util.removeVowels(method).slice(0, 4);
@@ -31,7 +28,7 @@ MethodTag.propTypes = {
   method: PropTypes.string.isRequired,
 
   // Optional
-  fullNames: PropTypes.bool
+  fullNames: PropTypes.bool,
 };
 
 export default MethodTag;

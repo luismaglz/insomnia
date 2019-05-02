@@ -13,7 +13,7 @@ class MarkdownPreview extends PureComponent {
     super(props);
     this.state = {
       compiled: '',
-      renderError: ''
+      renderError: '',
     };
   }
 
@@ -27,12 +27,12 @@ class MarkdownPreview extends PureComponent {
         const rendered = await this.props.handleRender(markdown);
         this.setState({
           compiled: markdownToHTML(rendered),
-          renderError: ''
+          renderError: '',
         });
       } catch (err) {
         this.setState({
           renderError: err.message,
-          compiled: ''
+          compiled: '',
         });
       }
     }, this.state.compiled ? this.props.debounceMillis : 0);
@@ -91,14 +91,8 @@ class MarkdownPreview extends PureComponent {
     let html = heading ? `<h1>${heading}</h1>\n${compiled}` : compiled;
 
     return (
-      <div
-        ref={this._setPreviewRef}
-        className={classnames('markdown-preview', className)}>
-        {renderError && (
-          <p className="notice error no-margin">
-            Failed to render: {renderError}
-          </p>
-        )}
+      <div ref={this._setPreviewRef} className={classnames('markdown-preview', className)}>
+        {renderError && <p className="notice error no-margin">Failed to render: {renderError}</p>}
         <div
           className="markdown-preview__content selectable"
           dangerouslySetInnerHTML={{ __html: html }}>
@@ -117,7 +111,7 @@ MarkdownPreview.propTypes = {
   // Optional
   className: PropTypes.string,
   debounceMillis: PropTypes.number,
-  heading: PropTypes.string
+  heading: PropTypes.string,
 };
 
 export default MarkdownPreview;

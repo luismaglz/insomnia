@@ -13,9 +13,7 @@ import WorkspaceEnvironmentsEditModal from '../components/modals/workspace-envir
 import Toast from '../components/toast';
 import CookiesModal from '../components/modals/cookies-modal';
 import RequestSwitcherModal from '../components/modals/request-switcher-modal';
-import SettingsModal, {
-  TAB_INDEX_SHORTCUTS
-} from '../components/modals/settings-modal';
+import SettingsModal, { TAB_INDEX_SHORTCUTS } from '../components/modals/settings-modal';
 import {
   COLLAPSE_SIDEBAR_REMS,
   DEFAULT_PANE_HEIGHT,
@@ -27,7 +25,7 @@ import {
   MIN_PANE_HEIGHT,
   MIN_PANE_WIDTH,
   MIN_SIDEBAR_REMS,
-  PREVIEW_MODE_SOURCE
+  PREVIEW_MODE_SOURCE,
 } from '../../common/constants';
 import * as globalActions from '../redux/modules/global';
 import * as db from '../../common/database';
@@ -45,7 +43,7 @@ import {
   selectEntitiesLists,
   selectSidebarChildren,
   selectUnseenWorkspaces,
-  selectWorkspaceRequestsAndRequestGroups
+  selectWorkspaceRequestsAndRequestGroups,
 } from '../redux/selectors';
 import RequestCreateModal from '../components/modals/request-create-modal';
 import GenerateCodeModal from '../components/modals/generate-code-modal';
@@ -82,21 +80,18 @@ class App extends PureComponent {
       draggingPaneVertical: false,
       sidebarWidth: props.sidebarWidth || DEFAULT_SIDEBAR_WIDTH,
       paneWidth: props.paneWidth || DEFAULT_PANE_WIDTH,
-      paneHeight: props.paneHeight || DEFAULT_PANE_HEIGHT
+      paneHeight: props.paneHeight || DEFAULT_PANE_HEIGHT,
+      isVariableUncovered: props.isVariableUncovered || false,
     };
 
     this._isMigratingChildren = false;
 
     this._getRenderContextPromiseCache = {};
 
-    this._savePaneWidth = debounce(paneWidth =>
-      this._updateActiveWorkspaceMeta({ paneWidth })
-    );
-    this._savePaneHeight = debounce(paneHeight =>
-      this._updateActiveWorkspaceMeta({ paneHeight })
-    );
+    this._savePaneWidth = debounce(paneWidth => this._updateActiveWorkspaceMeta({ paneWidth }));
+    this._savePaneHeight = debounce(paneHeight => this._updateActiveWorkspaceMeta({ paneHeight }));
     this._saveSidebarWidth = debounce(sidebarWidth =>
-      this._updateActiveWorkspaceMeta({ sidebarWidth })
+      this._updateActiveWorkspaceMeta({ sidebarWidth }),
     );
 
     this._globalKeyMap = null;
@@ -105,27 +100,33 @@ class App extends PureComponent {
   _setGlobalKeyMap() {
     this._globalKeyMap = [
       [
+        hotkeys.SHOW_KEYBOARD_SHORTCUTS,
+        () => {
+          showModal(SettingsModal, TAB_INDEX_SHORTCUTS);
+        },
+      ],
+      [
         hotkeys.SHOW_WORKSPACE_SETTINGS,
         () => {
           const { activeWorkspace } = this.props;
           showModal(WorkspaceSettingsModal, activeWorkspace);
-        }
+        },
       ],
       [
         hotkeys.SHOW_REQUEST_SETTINGS,
         () => {
           if (this.props.activeRequest) {
             showModal(RequestSettingsModal, {
-              request: this.props.activeRequest
+              request: this.props.activeRequest,
             });
           }
-        }
+        },
       ],
       [
         hotkeys.SHOW_QUICK_SWITCHER,
         () => {
           showModal(RequestSwitcherModal);
-        }
+        },
       ],
       [hotkeys.SEND_REQUEST, this._handleSendShortcut],
       [hotkeys.SEND_REQUEST_F5, this._handleSendShortcut],
@@ -134,24 +135,22 @@ class App extends PureComponent {
         () => {
           const { activeWorkspace } = this.props;
           showModal(WorkspaceEnvironmentsEditModal, activeWorkspace);
-        }
+        },
       ],
       [
         hotkeys.SHOW_COOKIES,
         () => {
           const { activeWorkspace } = this.props;
           showModal(CookiesModal, activeWorkspace);
-        }
+        },
       ],
       [
         hotkeys.CREATE_REQUEST,
         () => {
           const { activeRequest, activeWorkspace } = this.props;
-          const parentId = activeRequest
-            ? activeRequest.parentId
-            : activeWorkspace._id;
+          const parentId = activeRequest ? activeRequest.parentId : activeWorkspace._id;
           this._requestCreate(parentId);
-        }
+        },
       ],
       [
         hotkeys.DELETE_REQUEST,
@@ -170,32 +169,36 @@ class App extends PureComponent {
                 return;
               }
               models.request.remove(activeRequest);
-            }
+            },
           });
-        }
+        },
       ],
       [
         hotkeys.CREATE_FOLDER,
         () => {
           const { activeRequest, activeWorkspace } = this.props;
-          const parentId = activeRequest
-            ? activeRequest.parentId
-            : activeWorkspace._id;
+          const parentId = activeRequest ? activeRequest.parentId : activeWorkspace._id;
           this._requestGroupCreate(parentId);
-        }
+        },
       ],
       [
         hotkeys.GENERATE_CODE,
         async () => {
           showModal(GenerateCodeModal, this.props.activeRequest);
-        }
+        },
       ],
       [
         hotkeys.DUPLICATE_REQUEST,
         async () => {
           await this._requestDuplicate(this.props.activeRequest);
-        }
-      ]
+        },
+      ],
+      [
+        hotkeys.UNCOVER_VARIABLES,
+        async () => {
+          await this._updateIsVariableUncovered();
+        },
+      ],
     ];
   }
 
@@ -203,7 +206,7 @@ class App extends PureComponent {
     const { activeRequest, activeEnvironment } = this.props;
     await this._handleSendRequestWithEnvironment(
       activeRequest ? activeRequest._id : 'n/a',
-      activeEnvironment ? activeEnvironment._id : 'n/a'
+      activeEnvironment ? activeEnvironment._id : 'n/a',
     );
   }
 
@@ -229,13 +232,13 @@ class App extends PureComponent {
       onComplete: async name => {
         const requestGroup = await models.requestGroup.create({
           parentId,
-          name
+          name,
         });
         await models.requestGroupMeta.create({
           parentId: requestGroup._id,
-          collapsed: false
+          collapsed: false,
         });
-      }
+      },
     });
   }
 
@@ -244,7 +247,7 @@ class App extends PureComponent {
       parentId,
       onComplete: request => {
         this._handleSetActiveRequest(request._id);
-      }
+      },
     });
   }
 
@@ -276,7 +279,7 @@ class App extends PureComponent {
         const newWorkspace = await db.duplicate(workspace, { name });
         await this.props.handleSetActiveWorkspace(newWorkspace._id);
         callback();
-      }
+      },
     });
   }
 
@@ -287,7 +290,7 @@ class App extends PureComponent {
     const ancestors = await db.withAncestors(activeRequest || activeWorkspace, [
       models.request.type,
       models.requestGroup.type,
-      models.workspace.type
+      models.workspace.type,
     ]);
 
     return render.getRenderContext(activeRequest, environmentId, ancestors);
@@ -308,10 +311,7 @@ class App extends PureComponent {
    * @private
    */
   async _handleRenderText(text, contextCacheKey = null) {
-    if (
-      !contextCacheKey ||
-      !this._getRenderContextPromiseCache[contextCacheKey]
-    ) {
+    if (!contextCacheKey || !this._getRenderContextPromiseCache[contextCacheKey]) {
       const context = this._fetchRenderContext();
 
       // NOTE: We're caching promises here to avoid race conditions
@@ -319,10 +319,7 @@ class App extends PureComponent {
     }
 
     // Set timeout to delete the key eventually
-    setTimeout(
-      () => delete this._getRenderContextPromiseCache[contextCacheKey],
-      5000
-    );
+    setTimeout(() => delete this._getRenderContextPromiseCache[contextCacheKey], 5000);
 
     const context = await this._getRenderContextPromiseCache[contextCacheKey];
     return render.render(text, context);
@@ -346,9 +343,7 @@ class App extends PureComponent {
   }
 
   async _updateRequestGroupMetaByParentId(requestGroupId, patch) {
-    const requestGroupMeta = await models.requestGroupMeta.getByParentId(
-      requestGroupId
-    );
+    const requestGroupMeta = await models.requestGroupMeta.getByParentId(requestGroupId);
     if (requestGroupMeta) {
       await models.requestGroupMeta.update(requestGroupMeta, patch);
     } else {
@@ -359,9 +354,7 @@ class App extends PureComponent {
 
   async _updateActiveWorkspaceMeta(patch) {
     const workspaceId = this.props.activeWorkspace._id;
-    const workspaceMeta = await models.workspaceMeta.getOrCreateByParentId(
-      workspaceId
-    );
+    const workspaceMeta = await models.workspaceMeta.getOrCreateByParentId(workspaceId);
     if (workspaceMeta) {
       return models.workspaceMeta.update(workspaceMeta, patch);
     } else {
@@ -378,6 +371,10 @@ class App extends PureComponent {
       const newPatch = Object.assign({ parentId: requestId }, patch);
       return models.requestMeta.create(newPatch);
     }
+  }
+
+  _updateIsVariableUncovered(paneWidth) {
+    this.setState({ isVariableUncovered: !this.state.isVariableUncovered });
   }
 
   _handleSetPaneWidth(paneWidth) {
@@ -444,7 +441,7 @@ class App extends PureComponent {
 
       responseFilterHistory.unshift(responseFilter);
       await this._updateRequestMetaByParentId(requestId, {
-        responseFilterHistory
+        responseFilterHistory,
       });
     }, 2000);
   }
@@ -456,7 +453,7 @@ class App extends PureComponent {
     }
 
     const requestMeta = await models.requestMeta.getOrCreateByParentId(
-      this.props.activeRequest._id
+      this.props.activeRequest._id,
     );
     const savedBody = requestMeta.savedRequestBody;
 
@@ -466,15 +463,10 @@ class App extends PureComponent {
         : {}; // Clear saved value in requestMeta
 
     await models.requestMeta.update(requestMeta, {
-      savedRequestBody: saveValue
+      savedRequestBody: saveValue,
     });
 
-    const newRequest = await updateMimeType(
-      this.props.activeRequest,
-      mimeType,
-      false,
-      savedBody
-    );
+    const newRequest = await updateMimeType(this.props.activeRequest, mimeType, false, savedBody);
 
     // Force it to update, because other editor components (header editor)
     // needs to change. Need to wait a delay so the next render can finish
@@ -483,11 +475,22 @@ class App extends PureComponent {
     return newRequest;
   }
 
-  async _handleSendAndDownloadRequestWithEnvironment(
-    requestId,
-    environmentId,
-    dir
-  ) {
+  async _getDownloadLocation() {
+    return new Promise(resolve => {
+      const options = {
+        title: 'Select Download Location',
+        buttonLabel: 'Send and Save',
+        defaultPath: window.localStorage.getItem('insomnia.sendAndDownloadLocation'),
+      };
+
+      remote.dialog.showSaveDialog(options, filename => {
+        window.localStorage.setItem('insomnia.sendAndDownloadLocation', filename);
+        resolve(filename);
+      });
+    });
+  }
+
+  async _handleSendAndDownloadRequestWithEnvironment(requestId, environmentId, dir) {
     const request = await models.request.getById(requestId);
     if (!request) {
       return;
@@ -514,13 +517,17 @@ class App extends PureComponent {
       }
 
       if (responsePatch.statusCode >= 200 && responsePatch.statusCode < 300) {
-        const extension =
-          mime.extension(responsePatch.contentType) || 'unknown';
+        const extension = mime.extension(responsePatch.contentType) || 'unknown';
         const name =
-          nameFromHeader ||
-          `${request.name.replace(/\s/g, '-').toLowerCase()}.${extension}`;
+          nameFromHeader || `${request.name.replace(/\s/g, '-').toLowerCase()}.${extension}`;
 
-        const filename = path.join(dir, name);
+        let filename;
+        if (dir) {
+          filename = path.join(dir, name);
+        } else {
+          filename = await this._getDownloadLocation();
+        }
+
         const to = fs.createWriteStream(filename);
         const readStream = models.response.getBodyStream(responsePatch);
 
@@ -536,11 +543,7 @@ class App extends PureComponent {
         });
 
         readStream.on('error', async err => {
-          console.warn(
-            'Failed to download request after sending',
-            responsePatch.bodyPath,
-            err
-          );
+          console.warn('Failed to download request after sending', responsePatch.bodyPath, err);
           await models.response.create(responsePatch);
         });
       }
@@ -554,13 +557,13 @@ class App extends PureComponent {
               <pre>{err.message}</pre>
             </code>
           </div>
-        )
+        ),
       });
     }
 
     // Unset active response because we just made a new one
     await this._updateRequestMetaByParentId(requestId, {
-      activeResponseId: null
+      activeResponseId: null,
     });
 
     // Stop loading
@@ -598,14 +601,14 @@ class App extends PureComponent {
                 <pre>{err.message}</pre>
               </code>
             </div>
-          )
+          ),
         });
       }
     }
 
     // Unset active response because we just made a new one
     await this._updateRequestMetaByParentId(requestId, {
-      activeResponseId: null
+      activeResponseId: null,
     });
 
     // Stop loading
@@ -700,10 +703,7 @@ class App extends PureComponent {
 
       const pixelOffset = e.clientY - requestPane.offsetTop;
       let paneHeight = pixelOffset / (requestPaneHeight + responsePaneHeight);
-      paneHeight = Math.min(
-        Math.max(paneHeight, MIN_PANE_HEIGHT),
-        MAX_PANE_HEIGHT
-      );
+      paneHeight = Math.min(Math.max(paneHeight, MIN_PANE_HEIGHT), MAX_PANE_HEIGHT);
 
       this._handleSetPaneHeight(paneHeight);
     } else if (this.state.draggingSidebar) {
@@ -805,7 +805,7 @@ class App extends PureComponent {
         const [
           _, // eslint-disable-line no-unused-vars
           doc,
-          fromSync
+          fromSync,
         ] = change;
 
         const { activeRequest } = this.props;
@@ -866,7 +866,7 @@ class App extends PureComponent {
       e => {
         e.preventDefault();
       },
-      false
+      false,
     );
 
     document.addEventListener(
@@ -894,12 +894,12 @@ class App extends PureComponent {
               Import <code>{path}</code>?
             </span>
           ),
-          addCancel: true
+          addCancel: true,
         });
 
         handleImportUriToWorkspace(activeWorkspace._id, uri);
       },
-      false
+      false,
     );
 
     ipcRenderer.on('toggle-sidebar', this._handleToggleSidebar);
@@ -919,9 +919,7 @@ class App extends PureComponent {
 
   async _ensureWorkspaceChildren(props) {
     const { activeWorkspace, activeCookieJar, environments } = props;
-    const baseEnvironments = environments.filter(
-      e => e.parentId === activeWorkspace._id
-    );
+    const baseEnvironments = environments.filter(e => e.parentId === activeWorkspace._id);
 
     // Nothing to do
     if (baseEnvironments.length && activeCookieJar) {
@@ -939,18 +937,14 @@ class App extends PureComponent {
     await db.bufferChanges();
     if (baseEnvironments.length === 0) {
       await models.environment.create({ parentId: activeWorkspace._id });
-      console.log(
-        `[app] Created missing base environment for ${activeWorkspace.name}`
-      );
+      console.log(`[app] Created missing base environment for ${activeWorkspace.name}`);
     }
 
     if (!activeCookieJar) {
       await models.cookieJar.create({
-        parentId: this.props.activeWorkspace._id
+        parentId: this.props.activeWorkspace._id,
       });
-      console.log(
-        `[app] Created missing cookie jar for ${activeWorkspace.name}`
-      );
+      console.log(`[app] Created missing cookie jar for ${activeWorkspace.name}`);
     }
 
     await db.flushChanges();
@@ -976,9 +970,7 @@ class App extends PureComponent {
     return (
       <KeydownBinder
         onKeydown={this._handleKeyDown}
-        key={
-          this.props.activeWorkspace ? this.props.activeWorkspace._id : 'n/a'
-        }>
+        key={this.props.activeWorkspace ? this.props.activeWorkspace._id : 'n/a'}>
         <div className="app">
           <ErrorBoundary showAlert>
             <Wrapper
@@ -988,9 +980,7 @@ class App extends PureComponent {
               paneHeight={this.state.paneHeight}
               sidebarWidth={this.state.sidebarWidth}
               handleCreateRequestForWorkspace={this._requestCreateForWorkspace}
-              handleSetRequestGroupCollapsed={
-                this._handleSetRequestGroupCollapsed
-              }
+              handleSetRequestGroupCollapsed={this._handleSetRequestGroupCollapsed}
               handleActivateRequest={this._handleSetActiveRequest}
               handleSetRequestPaneRef={this._setRequestPaneRef}
               handleSetResponsePaneRef={this._setResponsePaneRef}
@@ -1010,15 +1000,11 @@ class App extends PureComponent {
               handleDuplicateWorkspace={this._workspaceDuplicate}
               handleCreateRequestGroup={this._requestGroupCreate}
               handleGenerateCode={this._handleGenerateCode}
-              handleGenerateCodeForActiveRequest={
-                this._handleGenerateCodeForActiveRequest
-              }
+              handleGenerateCodeForActiveRequest={this._handleGenerateCodeForActiveRequest}
               handleCopyAsCurl={this._handleCopyAsCurl}
               handleSetResponsePreviewMode={this._handleSetResponsePreviewMode}
               handleSetResponseFilter={this._handleSetResponseFilter}
-              handleSendRequestWithEnvironment={
-                this._handleSendRequestWithEnvironment
-              }
+              handleSendRequestWithEnvironment={this._handleSendRequestWithEnvironment}
               handleSendAndDownloadRequestWithEnvironment={
                 this._handleSendAndDownloadRequestWithEnvironment
               }
@@ -1028,6 +1014,7 @@ class App extends PureComponent {
               handleSetSidebarFilter={this._handleSetSidebarFilter}
               handleToggleMenuBar={this._handleToggleMenuBar}
               handleUpdateRequestMimeType={this._handleUpdateRequestMimeType}
+              isVariableUncovered={this.state.isVariableUncovered}
             />
           </ErrorBoundary>
 
@@ -1036,9 +1023,7 @@ class App extends PureComponent {
           </ErrorBoundary>
 
           {/* Block all mouse activity by showing an overlay while dragging */}
-          {this.state.showDragOverlay ? (
-            <div className="blocker-overlay" />
-          ) : null}
+          {this.state.showDragOverlay ? <div className="blocker-overlay" /> : null}
         </div>
       </KeydownBinder>
     );
@@ -1053,15 +1038,15 @@ App.propTypes = {
   handleCommand: PropTypes.func.isRequired,
   settings: PropTypes.object.isRequired,
   activeWorkspace: PropTypes.shape({
-    _id: PropTypes.string.isRequired
+    _id: PropTypes.string.isRequired,
   }).isRequired,
   handleSetActiveWorkspace: PropTypes.func.isRequired,
 
   // Optional
   activeRequest: PropTypes.object,
   activeEnvironment: PropTypes.shape({
-    _id: PropTypes.string.isRequired
-  })
+    _id: PropTypes.string.isRequired,
+  }),
 };
 
 function mapStateToProps(state, props) {
@@ -1078,10 +1063,7 @@ function mapStateToProps(state, props) {
   // Workspace stuff
   const workspaceMeta = selectActiveWorkspaceMeta(state, props) || {};
   const activeWorkspace = selectActiveWorkspace(state, props);
-  const activeWorkspaceClientCertificates = selectActiveWorkspaceClientCertificates(
-    state,
-    props
-  );
+  const activeWorkspaceClientCertificates = selectActiveWorkspaceClientCertificates(state, props);
   const sidebarHidden = workspaceMeta.sidebarHidden || false;
   const sidebarFilter = workspaceMeta.sidebarFilter || '';
   const sidebarWidth = workspaceMeta.sidebarWidth || DEFAULT_SIDEBAR_WIDTH;
@@ -1099,8 +1081,7 @@ function mapStateToProps(state, props) {
   const activeCookieJar = selectActiveCookieJar(state, props);
 
   // Response stuff
-  const activeRequestResponses =
-    selectActiveRequestResponses(state, props) || [];
+  const activeRequestResponses = selectActiveRequestResponses(state, props) || [];
   const activeResponse = selectActiveResponse(state, props) || null;
 
   // Environment stuff
@@ -1111,13 +1092,9 @@ function mapStateToProps(state, props) {
   const oAuth2Token = selectActiveOAuth2Token(state, props);
 
   // Find other meta things
-  const loadStartTime =
-    loadingRequestIds[activeRequest ? activeRequest._id : 'n/a'] || -1;
+  const loadStartTime = loadingRequestIds[activeRequest ? activeRequest._id : 'n/a'] || -1;
   const sidebarChildren = selectSidebarChildren(state, props);
-  const workspaceChildren = selectWorkspaceRequestsAndRequestGroups(
-    state,
-    props
-  );
+  const workspaceChildren = selectWorkspaceRequestsAndRequestGroups(state, props);
   const unseenWorkspaces = selectUnseenWorkspaces(state, props);
 
   return Object.assign({}, state, {
@@ -1146,7 +1123,7 @@ function mapStateToProps(state, props) {
     sidebarChildren,
     environments,
     activeEnvironment,
-    workspaceChildren
+    workspaceChildren,
   });
 }
 
@@ -1162,7 +1139,7 @@ function mapDispatchToProps(dispatch) {
     handleImportUriToWorkspace: global.importUri,
     handleCommand: global.newCommand,
     handleExportFile: global.exportFile,
-    handleMoveDoc: _moveDoc
+    handleMoveDoc: _moveDoc,
   };
 }
 
@@ -1194,7 +1171,7 @@ async function _moveDoc(docToMove, parentId, targetId, targetOffset) {
   // NOTE: using requestToTarget's parentId so we can switch parents!
   let docs = [
     ...(await models.request.findByParentId(parentId)),
-    ...(await models.requestGroup.findByParentId(parentId))
+    ...(await models.requestGroup.findByParentId(parentId)),
   ].sort((a, b) => (a.metaSortKey < b.metaSortKey ? -1 : 1));
 
   // Find the index of doc B so we can re-order and save everything
@@ -1214,9 +1191,7 @@ async function _moveDoc(docToMove, parentId, targetId, targetOffset) {
       }
 
       const beforeKey = before ? before.metaSortKey : docs[0].metaSortKey - 100;
-      const afterKey = after
-        ? after.metaSortKey
-        : docs[docs.length - 1].metaSortKey + 100;
+      const afterKey = after ? after.metaSortKey : docs[docs.length - 1].metaSortKey + 100;
 
       if (Math.abs(afterKey - beforeKey) < 0.000001) {
         // If sort keys get too close together, we need to redistribute the list. This is
@@ -1238,5 +1213,5 @@ async function _moveDoc(docToMove, parentId, targetId, targetOffset) {
 
 export default connect(
   mapStateToProps,
-  mapDispatchToProps
+  mapDispatchToProps,
 )(App);

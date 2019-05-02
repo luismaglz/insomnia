@@ -6,10 +6,10 @@ import { isMac } from '../../common/constants';
 
 type Props = {
   onKeydown: Function,
-  children?: React.Node,
+  children: React.Node,
   disabled?: boolean,
   scoped?: boolean,
-  stopMetaPropagation?: boolean
+  stopMetaPropagation?: boolean,
 };
 
 @autobind
@@ -34,8 +34,7 @@ class KeydownBinder extends React.PureComponent<Props> {
       const el = ReactDOM.findDOMNode(this);
       el && el.addEventListener('keydown', this._handleKeydown);
     } else {
-      document.body &&
-        document.body.addEventListener('keydown', this._handleKeydown);
+      document.body && document.body.addEventListener('keydown', this._handleKeydown);
     }
   }
 
@@ -44,8 +43,7 @@ class KeydownBinder extends React.PureComponent<Props> {
       const el = ReactDOM.findDOMNode(this);
       el && el.removeEventListener('keydown', this._handleKeydown);
     } else {
-      document.body &&
-        document.body.removeEventListener('keydown', this._handleKeydown);
+      document.body && document.body.removeEventListener('keydown', this._handleKeydown);
     }
   }
 

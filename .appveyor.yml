@@ -9,7 +9,7 @@ test: off
 shallow_clone: true
 platform: x64
 environment:
-  NODEJS_VERSION: "8"
+  NODEJS_VERSION: "10"
 
 # Things to install after repo clone
 install:

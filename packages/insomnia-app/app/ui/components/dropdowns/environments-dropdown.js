@@ -7,7 +7,7 @@ import {
   DropdownButton,
   DropdownDivider,
   DropdownHint,
-  DropdownItem
+  DropdownItem,
 } from '../base/dropdown';
 import { showModal } from '../modals/index';
 import Tooltip from '../tooltip';
@@ -25,7 +25,7 @@ type Props = {
 
   // Optional
   className?: string,
-  activeEnvironment: Environment | null
+  activeEnvironment: Environment | null,
 };
 
 @autobind
@@ -73,9 +73,7 @@ class EnvironmentsDropdown extends React.PureComponent<Props> {
     } = this.props;
 
     // NOTE: Base environment might not exist if the users hasn't managed environments yet.
-    const baseEnvironment = environments.find(
-      e => e.parentId === workspace._id
-    );
+    const baseEnvironment = environments.find(e => e.parentId === workspace._id);
     const subEnvironments = environments
       .filter(e => e.parentId === (baseEnvironment && baseEnvironment._id))
       .sort((e1, e2) => e1.metaSortKey - e2.metaSortKey);

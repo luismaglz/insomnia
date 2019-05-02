@@ -1,11 +1,7 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import autobind from 'autobind-decorator';
-import {
-  buildQueryStringFromParams,
-  joinUrlAndQueryString,
-  smartEncodeUrl
-} from 'insomnia-url';
+import { buildQueryStringFromParams, joinUrlAndQueryString, smartEncodeUrl } from 'insomnia-url';
 import CopyButton from './base/copy-button';
 
 @autobind
@@ -14,7 +10,7 @@ class RenderedQueryString extends PureComponent {
     super(props);
     this._interval = null;
     this.state = {
-      string: ''
+      string: '',
     };
   }
 
@@ -33,7 +29,7 @@ class RenderedQueryString extends PureComponent {
     try {
       result = await props.handleRender({
         url: request.url,
-        parameters: enabledParameters
+        parameters: enabledParameters,
       });
     } catch (err) {
       // Just ignore failures
@@ -44,7 +40,7 @@ class RenderedQueryString extends PureComponent {
       const qs = buildQueryStringFromParams(parameters);
       const fullUrl = joinUrlAndQueryString(url, qs);
       this.setState({
-        string: smartEncodeUrl(fullUrl, request.settingEncodeUrl)
+        string: smartEncodeUrl(fullUrl, request.settingEncodeUrl),
       });
     }
   }
@@ -68,9 +64,7 @@ class RenderedQueryString extends PureComponent {
   render() {
     let inner = null;
     if (this.state.string) {
-      inner = (
-        <span className="selectable force-wrap">{this.state.string}</span>
-      );
+      inner = <span className="selectable force-wrap">{this.state.string}</span>;
     } else {
       inner = <span className="super-duper-faint italic">...</span>;
     }
@@ -92,7 +86,7 @@ class RenderedQueryString extends PureComponent {
 
 RenderedQueryString.propTypes = {
   request: PropTypes.object.isRequired,
-  handleRender: PropTypes.func.isRequired
+  handleRender: PropTypes.func.isRequired,
 };
 
 export default RenderedQueryString;

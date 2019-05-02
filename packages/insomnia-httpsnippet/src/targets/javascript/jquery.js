@@ -16,9 +16,9 @@ var CodeBuilder = require('../../helpers/code-builder');
 module.exports = function(source, options) {
   var opts = util._extend(
     {
-      indent: '  '
+      indent: '  ',
     },
-    options
+    options,
   );
 
   var code = new CodeBuilder(opts.indent);
@@ -28,14 +28,12 @@ module.exports = function(source, options) {
     crossDomain: true,
     url: source.fullUrl,
     method: source.method,
-    headers: source.allHeaders
+    headers: source.allHeaders,
   };
 
   switch (source.postData.mimeType) {
     case 'application/x-www-form-urlencoded':
-      settings.data = source.postData.paramsObj
-        ? source.postData.paramsObj
-        : source.postData.text;
+      settings.data = source.postData.paramsObj ? source.postData.paramsObj : source.postData.text;
       break;
 
     case 'application/json':
@@ -50,7 +48,7 @@ module.exports = function(source, options) {
         code.push(
           'form.append(%s, %s);',
           JSON.stringify(param.name),
-          JSON.stringify(param.value || param.fileName || '')
+          JSON.stringify(param.value || param.fileName || ''),
         );
       });
 
@@ -74,8 +72,7 @@ module.exports = function(source, options) {
 
   code
     .push(
-      'var settings = ' +
-        JSON.stringify(settings, null, opts.indent).replace('"[form]"', 'form')
+      'var settings = ' + JSON.stringify(settings, null, opts.indent).replace('"[form]"', 'form'),
     )
     .blank()
     .push('$.ajax(settings).done(function (response) {')
@@ -89,5 +86,5 @@ module.exports.info = {
   key: 'jquery',
   title: 'jQuery',
   link: 'http://api.jquery.com/jquery.ajax/',
-  description: 'Perform an asynchronous HTTP (Ajax) requests with jQuery'
+  description: 'Perform an asynchronous HTTP (Ajax) requests with jQuery',
 };

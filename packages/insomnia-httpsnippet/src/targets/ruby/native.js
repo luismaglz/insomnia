@@ -25,17 +25,14 @@ module.exports = function(source, options) {
     'LOCK',
     'UNLOCK',
     'MOVE',
-    'TRACE'
+    'TRACE',
   ];
   var capMethod = method.charAt(0) + method.substring(1).toLowerCase();
   if (methods.indexOf(method) < 0) {
     code
       .push('class Net::HTTP::%s < Net::HTTPRequest', capMethod)
       .push("  METHOD = '%s'", method.toUpperCase())
-      .push(
-        "  REQUEST_HAS_BODY = '%s'",
-        source.postData.text ? 'true' : 'false'
-      )
+      .push("  REQUEST_HAS_BODY = '%s'", source.postData.text ? 'true' : 'false')
       .push('  RESPONSE_HAS_BODY = true')
       .push('end')
       .blank();
@@ -47,9 +44,7 @@ module.exports = function(source, options) {
     .push('http = Net::HTTP.new(url.host, url.port)');
 
   if (source.uriObj.protocol === 'https:') {
-    code
-      .push('http.use_ssl = true')
-      .push('http.verify_mode = OpenSSL::SSL::VERIFY_NONE');
+    code.push('http.use_ssl = true').push('http.verify_mode = OpenSSL::SSL::VERIFY_NONE');
   }
 
   code.blank().push('request = Net::HTTP::%s.new(url)', capMethod);
@@ -77,5 +72,5 @@ module.exports.info = {
   key: 'native',
   title: 'net::http',
   link: 'http://ruby-doc.org/stdlib-2.2.1/libdoc/net/http/rdoc/Net/HTTP.html',
-  description: 'Ruby HTTP client'
+  description: 'Ruby HTTP client',
 };

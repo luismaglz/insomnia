@@ -13,7 +13,7 @@ class NunjucksModal extends PureComponent {
   constructor(props) {
     super(props);
     this.state = {
-      defaultTemplate: ''
+      defaultTemplate: '',
     };
 
     this._onDone = null;
@@ -53,12 +53,7 @@ class NunjucksModal extends PureComponent {
   }
 
   render() {
-    const {
-      handleRender,
-      handleGetRenderContext,
-      uniqueKey,
-      workspace
-    } = this.props;
+    const { handleRender, handleGetRenderContext, uniqueKey, workspace } = this.props;
     const { defaultTemplate } = this.state;
 
     let editor = null;
@@ -87,10 +82,7 @@ class NunjucksModal extends PureComponent {
     }
 
     return (
-      <Modal
-        ref={this._setModalRef}
-        onHide={this._handleModalHide}
-        key={uniqueKey}>
+      <Modal ref={this._setModalRef} onHide={this._handleModalHide} key={uniqueKey}>
         <ModalHeader>Edit {title}</ModalHeader>
         <ModalBody className="pad" key={defaultTemplate}>
           <form onSubmit={this._handleSubmit}>{editor}</form>
@@ -109,7 +101,7 @@ NunjucksModal.propTypes = {
   uniqueKey: PropTypes.string.isRequired,
   handleRender: PropTypes.func.isRequired,
   handleGetRenderContext: PropTypes.func.isRequired,
-  workspace: PropTypes.object.isRequired
+  workspace: PropTypes.object.isRequired,
 };
 
 export default NunjucksModal;

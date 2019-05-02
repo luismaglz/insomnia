@@ -17,7 +17,7 @@ class Modal extends PureComponent {
     this.state = {
       open: false,
       forceRefreshCounter: 0,
-      zIndex: globalZIndex
+      zIndex: globalZIndex,
     };
   }
 
@@ -56,10 +56,7 @@ class Modal extends PureComponent {
     let shouldHide = false;
 
     for (let i = 0; i < 5; i++) {
-      if (
-        target instanceof HTMLElement &&
-        target.hasAttribute('data-close-modal')
-      ) {
+      if (target instanceof HTMLElement && target.hasAttribute('data-close-modal')) {
         shouldHide = true;
         break;
       }
@@ -84,7 +81,7 @@ class Modal extends PureComponent {
     this.setState({
       open: true,
       zIndex: globalZIndex++,
-      forceRefreshCounter: forceRefreshCounter + (freshState ? 1 : 0)
+      forceRefreshCounter: forceRefreshCounter + (freshState ? 1 : 0),
     });
 
     if (this.props.dontFocus) {
@@ -125,7 +122,7 @@ class Modal extends PureComponent {
       className,
       { 'modal--fixed-height': tall },
       { 'modal--noescape': noEscape },
-      { 'modal--wide': wide }
+      { 'modal--wide': wide },
     );
 
     const styles = {};
@@ -141,10 +138,7 @@ class Modal extends PureComponent {
           className={classes}
           style={styles}
           onClick={this._handleClick}>
-          <div
-            className="modal__backdrop overlay theme--transparent-overlay"
-            data-close-modal
-          />
+          <div className="modal__backdrop overlay theme--transparent-overlay" data-close-modal />
           <div className="modal__content__wrapper">
             <div className="modal__content" key={forceRefreshCounter}>
               {children}
@@ -166,7 +160,7 @@ Modal.propTypes = {
   onCancel: PropTypes.func,
   freshState: PropTypes.bool,
   children: PropTypes.node,
-  className: PropTypes.string
+  className: PropTypes.string,
 };
 
 export default Modal;

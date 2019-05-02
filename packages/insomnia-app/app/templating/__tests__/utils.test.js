@@ -10,7 +10,7 @@ describe('getKeys()', () => {
       null: null,
       undefined: undefined,
       false: false,
-      array: ['hello', { hi: 'there' }, true, ['x', 'y', 'z']]
+      array: ['hello', { hi: 'there' }, true, ['x', 'y', 'z']],
     };
 
     const keys = utils.getKeys(obj).sort((a, b) => (a.name > b.name ? 1 : -1));
@@ -25,7 +25,7 @@ describe('getKeys()', () => {
       { name: 'false', value: obj.false },
       { name: 'foo', value: obj.foo },
       { name: 'null', value: obj.null },
-      { name: 'undefined', value: obj.undefined }
+      { name: 'undefined', value: obj.undefined },
     ]);
   });
 
@@ -34,7 +34,7 @@ describe('getKeys()', () => {
       foo: 'bar',
       toString: function() {
         // Nothing
-      }
+      },
     };
 
     const keys = utils.getKeys(obj);
@@ -45,17 +45,15 @@ describe('getKeys()', () => {
 describe('tokenizeTag()', () => {
   beforeEach(globalBeforeEach);
   it('tokenizes complex tag', () => {
-    const actual = utils.tokenizeTag(
-      `{% name bar, "baz \\"qux\\""   , 1 + 5 | default("foo") %}`
-    );
+    const actual = utils.tokenizeTag(`{% name bar, "baz \\"qux\\""   , 1 + 5 | default("foo") %}`);
 
     const expected = {
       name: 'name',
       args: [
         { type: 'variable', value: 'bar' },
         { type: 'string', value: 'baz "qux"', quotedBy: '"' },
-        { type: 'expression', value: '1 + 5 | default("foo")' }
-      ]
+        { type: 'expression', value: '1 + 5 | default("foo")' },
+      ],
     };
 
     expect(actual).toEqual(expected);
@@ -67,10 +65,7 @@ describe('tokenizeTag()', () => {
 
     const expected = {
       name: 'name',
-      args: [
-        { type: 'string', value: 'foo', quotedBy: "'" },
-        { type: 'variable', value: 'bar' }
-      ]
+      args: [{ type: 'string', value: 'foo', quotedBy: "'" }, { type: 'variable', value: 'bar' }],
     };
 
     expect(minimal).toEqual(expected);
@@ -82,7 +77,7 @@ describe('tokenizeTag()', () => {
 
     const expected = {
       name: 'name',
-      args: [{ type: 'string', value: 'foo', quotedBy: "'" }]
+      args: [{ type: 'string', value: 'foo', quotedBy: "'" }],
     };
 
     expect(actual).toEqual(expected);
@@ -96,8 +91,8 @@ describe('tokenizeTag()', () => {
       args: [
         { type: 'number', value: '9.324' },
         { type: 'number', value: '8' },
-        { type: 'number', value: '7' }
-      ]
+        { type: 'number', value: '7' },
+      ],
     };
 
     expect(actual).toEqual(expected);
@@ -108,23 +103,18 @@ describe('tokenizeTag()', () => {
 
     const expected = {
       name: 'name',
-      args: [
-        { type: 'boolean', value: true },
-        { type: 'boolean', value: false }
-      ]
+      args: [{ type: 'boolean', value: true }, { type: 'boolean', value: false }],
     };
 
     expect(actual).toEqual(expected);
   });
 
   it('handles type expression', () => {
-    const actual = utils.tokenizeTag(
-      `{% name 5 * 10 + 'hello' | default(2 - 3) %}`
-    );
+    const actual = utils.tokenizeTag(`{% name 5 * 10 + 'hello' | default(2 - 3) %}`);
 
     const expected = {
       name: 'name',
-      args: [{ type: 'expression', value: `5 * 10 + 'hello' | default(2 - 3)` }]
+      args: [{ type: 'expression', value: `5 * 10 + 'hello' | default(2 - 3)` }],
     };
 
     expect(actual).toEqual(expected);
@@ -139,7 +129,7 @@ describe('tokenizeTag()', () => {
 
     const expected = {
       name: 'name',
-      args: [{ type: 'expression', value: 'foo bar baz' }]
+      args: [{ type: 'expression', value: 'foo bar baz' }],
     };
 
     expect(actual).toEqual(expected);
@@ -160,10 +150,7 @@ describe('unTokenizeTag()', () => {
   it('fixes missing quotedBy attribute', () => {
     const tagData = {
       name: 'name',
-      args: [
-        { type: 'file', value: 'foo/bar/baz' },
-        { type: 'model', value: 'foo' }
-      ]
+      args: [{ type: 'file', value: 'foo/bar/baz' }, { type: 'model', value: 'foo' }],
     };
 
     const result = utils.unTokenizeTag(tagData);

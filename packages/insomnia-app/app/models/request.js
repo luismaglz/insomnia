@@ -20,14 +20,11 @@ import {
   getContentTypeFromHeaders,
   HAWK_ALGORITHM_SHA256,
   METHOD_GET,
-  METHOD_POST
+  METHOD_POST,
 } from '../common/constants';
 import * as db from '../common/database';
 import { getContentTypeHeader } from '../common/misc';
-import {
-  buildQueryStringFromParams,
-  deconstructQueryStringToParams
-} from 'insomnia-url';
+import { deconstructQueryStringToParams } from 'insomnia-url';
 import { GRANT_TYPE_AUTHORIZATION_CODE } from '../network/o-auth-2/constants';
 import { SIGNATURE_METHOD_HMAC_SHA1 } from '../network/o-auth-1/constants';
 
@@ -41,7 +38,7 @@ export type RequestAuthentication = Object;
 export type RequestHeader = {
   name: string,
   value: string,
-  disabled?: boolean
+  disabled?: boolean,
 };
 
 export type RequestParameter = {
@@ -49,7 +46,7 @@ export type RequestParameter = {
   value: string,
   disabled?: boolean,
   id?: string,
-  fileName?: string
+  fileName?: string,
 };
 
 export type RequestBodyParameter = {
@@ -59,14 +56,14 @@ export type RequestBodyParameter = {
   multiline?: string,
   id?: string,
   fileName?: string,
-  type?: string
+  type?: string,
 };
 
 export type RequestBody = {
   mimeType?: string | null,
   text?: string,
   fileName?: string,
-  params?: Array<RequestBodyParameter>
+  params?: Array<RequestBodyParameter>,
 };
 
 type BaseRequest = {
@@ -87,7 +84,7 @@ type BaseRequest = {
   settingDisableRenderRequestBody: boolean,
   settingEncodeUrl: boolean,
   settingRebuildPath: boolean,
-  settingMaxTimelineDataSize: number
+  settingMaxTimelineDataSize: number,
 };
 
 export type Request = BaseModel & BaseRequest;
@@ -111,14 +108,11 @@ export function init(): BaseRequest {
     settingDisableRenderRequestBody: false,
     settingEncodeUrl: true,
     settingRebuildPath: true,
-    settingMaxTimelineDataSize: 1000
+    settingMaxTimelineDataSize: 1000,
   };
 }
 
-export function newAuth(
-  type: string,
-  oldAuth: RequestAuthentication = {}
-): RequestAuthentication {
+export function newAuth(type: string, oldAuth: RequestAuthentication = {}): RequestAuthentication {
   switch (type) {
     // No Auth
     case AUTH_NONE:
@@ -132,7 +126,7 @@ export function newAuth(
         type,
         disabled: oldAuth.disabled || false,
         username: oldAuth.username || '',
-        password: oldAuth.password || ''
+        password: oldAuth.password || '',
       };
 
     case AUTH_OAUTH_1:
@@ -148,14 +142,14 @@ export function newAuth(
         version: '1.0',
         nonce: '',
         timestamp: '',
-        callback: ''
+        callback: '',
       };
 
     // OAuth 2.0
     case AUTH_OAUTH_2:
       return {
         type,
-        grantType: GRANT_TYPE_AUTHORIZATION_CODE
+        grantType: GRANT_TYPE_AUTHORIZATION_CODE,
       };
 
     // Aws IAM
@@ -165,14 +159,14 @@ export function newAuth(
         disabled: oldAuth.disabled || false,
         accessKeyId: oldAuth.accessKeyId || '',
         secretAccessKey: oldAuth.secretAccessKey || '',
-        sessionToken: oldAuth.sessionToken || ''
+        sessionToken: oldAuth.sessionToken || '',
       };
 
     // Hawk
     case AUTH_HAWK:
       return {
         type,
-        algorithm: HAWK_ALGORITHM_SHA256
+        algorithm: HAWK_ALGORITHM_SHA256,
       };
 
     // Atlassian ASAP
@@ -184,7 +178,7 @@ export function newAuth(
         audience: '',
         additionalClaims: '',
         keyId: '',
-        privateKey: ''
+        privateKey: '',
       };
 
     // Types needing no defaults
@@ -207,28 +201,24 @@ export function newBodyRaw(rawBody: string, contentType?: string): RequestBody {
   return { mimeType, text: rawBody };
 }
 
-export function newBodyFormUrlEncoded(
-  parameters: Array<RequestBodyParameter> | null
-): RequestBody {
+export function newBodyFormUrlEncoded(parameters: Array<RequestBodyParameter> | null): RequestBody {
   return {
     mimeType: CONTENT_TYPE_FORM_URLENCODED,
-    params: parameters || []
+    params: parameters || [],
   };
 }
 
 export function newBodyFile(path: string): RequestBody {
   return {
     mimeType: CONTENT_TYPE_FILE,
-    fileName: path
+    fileName: path,
   };
 }
 
-export function newBodyForm(
-  parameters: Array<RequestBodyParameter>
-): RequestBody {
+export function newBodyForm(parameters: Array<RequestBodyParameter>): RequestBody {
   return {
     mimeType: CONTENT_TYPE_FORM_DATA,
-    params: parameters || []
+    params: parameters || [],
   };
 }
 
@@ -241,9 +231,7 @@ export function migrate(doc: Request): Request {
 
 export function create(patch: Object = {}): Promise<Request> {
   if (!patch.parentId) {
-    throw new Error(
-      `New Requests missing \`parentId\`: ${JSON.stringify(patch)}`
-    );
+    throw new Error(`New Requests missing \`parentId\`: ${JSON.stringify(patch)}`);
   }
 
   return db.docCreate(type, patch);
@@ -265,14 +253,13 @@ export function updateMimeType(
   request: Request,
   mimeType: string,
   doCreate: boolean = false,
-  savedBody: RequestBody = {}
+  savedBody: RequestBody = {},
 ): Promise<Request> {
   let headers = request.headers ? [...request.headers] : [];
   const contentTypeHeader = getContentTypeHeader(headers);
 
   // GraphQL uses JSON content-type
-  const contentTypeHeaderValue =
-    mimeType === CONTENT_TYPE_GRAPHQL ? CONTENT_TYPE_JSON : mimeType;
+  const contentTypeHeaderValue = mimeType === CONTENT_TYPE_GRAPHQL ? CONTENT_TYPE_JSON : mimeType;
 
   // GraphQL must be POST
   if (mimeType === CONTENT_TYPE_GRAPHQL) {
@@ -295,7 +282,9 @@ export function updateMimeType(
   // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ //
 
   const hasBody = typeof mimeType === 'string';
-  if (!hasBody || mimeType === CONTENT_TYPE_OTHER) {
+  if (!hasBody) {
+    headers = headers.filter(h => h !== contentTypeHeader);
+  } else if (mimeType === CONTENT_TYPE_OTHER) {
     // Leave headers alone
   } else if (mimeType && contentTypeHeader && !leaveContentTypeAlone) {
     contentTypeHeader.value = contentTypeHeaderValue;
@@ -309,8 +298,7 @@ export function updateMimeType(
 
   let body;
 
-  const oldBody =
-    Object.keys(savedBody).length === 0 ? request.body : savedBody;
+  const oldBody = Object.keys(savedBody).length === 0 ? request.body : savedBody;
 
   if (mimeType === CONTENT_TYPE_FORM_URLENCODED) {
     // Urlencoded
@@ -335,9 +323,7 @@ export function updateMimeType(
     body = newBodyNone();
   } else {
     // Raw Content-Type (ex: application/json)
-    body = oldBody.params
-      ? newBodyRaw(buildQueryStringFromParams(oldBody.params, false), mimeType)
-      : newBodyRaw(oldBody.text || '', mimeType);
+    body = newBodyRaw(oldBody.text || '', mimeType);
   }
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~ //
@@ -358,9 +344,7 @@ export async function duplicate(request: Request): Promise<Request> {
   // Get sort key of next request
   const q = { metaSortKey: { $gt: request.metaSortKey } };
   const [nextRequest] = await db.find(type, q, { metaSortKey: 1 });
-  const nextSortKey = nextRequest
-    ? nextRequest.metaSortKey
-    : request.metaSortKey + 100;
+  const nextSortKey = nextRequest ? nextRequest.metaSortKey : request.metaSortKey + 100;
 
   // Calculate new sort key
   const sortKeyIncrement = (nextSortKey - request.metaSortKey) / 2;
@@ -393,16 +377,12 @@ function migrateBody(request: Request): Request {
 
   // Second, convert all existing urlencoded bodies to new format
   const contentType = getContentTypeFromHeaders(request.headers) || '';
-  const wasFormUrlEncoded = !!contentType.match(
-    /^application\/x-www-form-urlencoded/i
-  );
+  const wasFormUrlEncoded = !!contentType.match(/^application\/x-www-form-urlencoded/i);
 
   if (wasFormUrlEncoded) {
     // Convert old-style form-encoded request bodies to new style
     const body = typeof request.body === 'string' ? request.body : '';
-    request.body = newBodyFormUrlEncoded(
-      deconstructQueryStringToParams(body, false)
-    );
+    request.body = newBodyFormUrlEncoded(deconstructQueryStringToParams(body, false));
   } else if (!request.body && !contentType) {
     request.body = {};
   } else {

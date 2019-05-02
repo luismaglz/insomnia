@@ -16,12 +16,12 @@ type Props = {
   handleShowModifyCookieModal: Function,
   handleRender: (string | Object) => Promise<string | Object>,
   cookieJar: CookieJar,
-  workspace: Workspace
+  workspace: Workspace,
 };
 
 type State = {
   filter: string,
-  visibleCookieIndexes: Array<number> | null
+  visibleCookieIndexes: Array<number> | null,
 };
 
 @autobind
@@ -34,7 +34,7 @@ class CookiesModal extends PureComponent<Props, State> {
 
     this.state = {
       filter: '',
-      visibleCookieIndexes: null
+      visibleCookieIndexes: null,
     };
   }
 
@@ -87,10 +87,7 @@ class CookiesModal extends PureComponent<Props, State> {
   componentWillReceiveProps(nextProps: Props) {
     // Re-filter if we received new cookies
     // Compare cookies with Dates cast to strings
-    const sameCookies = deepEqual(
-      this.props.cookieJar.cookies,
-      nextProps.cookieJar.cookies
-    );
+    const sameCookies = deepEqual(this.props.cookieJar.cookies, nextProps.cookieJar.cookies);
 
     if (!sameCookies) {
       this._applyFilter(this.state.filter, nextProps.cookieJar.cookies);

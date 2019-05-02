@@ -9,10 +9,7 @@ import { PassThrough } from 'stream';
 import multiparty from 'multiparty';
 import autobind from 'autobind-decorator';
 import ResponseViewer from './response-viewer';
-import {
-  getContentTypeFromHeaders,
-  PREVIEW_MODE_FRIENDLY
-} from '../../../common/constants';
+import { getContentTypeFromHeaders, PREVIEW_MODE_FRIENDLY } from '../../../common/constants';
 import type { ResponseHeader } from '../../../models/response';
 import { Dropdown, DropdownButton, DropdownItem } from '../base/dropdown/index';
 import WrapperModal from '../modals/wrapper-modal';
@@ -24,7 +21,7 @@ type Part = {
   bytes: number,
   value: Buffer,
   filename: string | null,
-  headers: Array<ResponseHeader>
+  headers: Array<ResponseHeader>,
 };
 
 type Props = {
@@ -38,13 +35,13 @@ type Props = {
   editorIndentSize: number,
   editorKeyMap: string,
   editorLineWrapping: boolean,
-  url: string
+  url: string,
 };
 
 type State = {
   activePart: number,
   parts: Array<Part>,
-  error: string | null
+  error: string | null,
 };
 
 @autobind
@@ -54,7 +51,7 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
     this.state = {
       activePart: -1,
       parts: [],
-      error: null
+      error: null,
     };
   }
 
@@ -111,14 +108,9 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
       ),
       body: (
         <ResponseHeadersViewer
-          headers={[
-            ...part.headers,
-            ...part.headers,
-            ...part.headers,
-            ...part.headers
-          ]}
+          headers={[...part.headers, ...part.headers, ...part.headers, ...part.headers]}
         />
-      )
+      ),
     });
   }
 
@@ -144,9 +136,9 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
       filters: [
         {
           name: 'Download',
-          extensions: [extension]
-        }
-      ]
+          extensions: [extension],
+        },
+      ],
     };
 
     electron.remote.dialog.showSaveDialog(options, outputPath => {
@@ -155,10 +147,7 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
       }
 
       // Remember last exported path
-      window.localStorage.setItem(
-        'insomnia.lastExportPath',
-        path.dirname(filename)
-      );
+      window.localStorage.setItem('insomnia.lastExportPath', path.dirname(filename));
 
       // Save the file
       fs.writeFile(outputPath, part.value, err => {
@@ -180,7 +169,7 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
 
       const fakeReq = new PassThrough();
       (fakeReq: Object).headers = {
-        'content-type': contentType
+        'content-type': contentType,
       };
 
       const form = new multiparty.Form();
@@ -202,8 +191,8 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
             bytes: part.byteCount,
             headers: Object.keys(part.headers).map(name => ({
               name,
-              value: part.headers[name]
-            }))
+              value: part.headers[name],
+            })),
           });
         });
       });
@@ -233,7 +222,7 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
       filter,
       filterHistory,
       responseId,
-      url
+      url,
     } = this.props;
 
     const { activePart, parts, error } = this.state;
@@ -256,7 +245,7 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
           className="pad-bottom-sm"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) auto'
+            gridTemplateColumns: 'minmax(0, 1fr) auto',
           }}>
           <div>
             <Dropdown wide>
@@ -267,15 +256,8 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
                 <i className="fa fa-caret-down fa--skinny space-left" />
               </DropdownButton>
               {parts.map((part, i) => (
-                <DropdownItem
-                  key={i}
-                  value={i}
-                  onClick={this._handleSelectPart}>
-                  {i === activePart ? (
-                    <i className="fa fa-check" />
-                  ) : (
-                    <i className="fa fa-empty" />
-                  )}
+                <DropdownItem key={i} value={i} onClick={this._handleSelectPart}>
+                  {i === activePart ? <i className="fa fa-check" /> : <i className="fa fa-empty" />}
                   {this._describePart(part)}
                 </DropdownItem>
               ))}
@@ -298,10 +280,7 @@ class ResponseMultipart extends React.PureComponent<Props, State> {
             <ResponseViewer
               key={`${responseId}::${activePart}`}
               bytes={selectedPart.bytes || 0}
-              contentType={getContentTypeFromHeaders(
-                selectedPart.headers,
-                'text/plain'
-              )}
+              contentType={getContentTypeFromHeaders(selectedPart.headers, 'text/plain')}
               download={download}
               editorFontSize={editorFontSize}
               editorIndentSize={editorIndentSize}

@@ -6,13 +6,7 @@ class ModalFooter extends PureComponent {
   render() {
     const { children, className } = this.props;
     return (
-      <div
-        className={classnames(
-          'modal__footer theme--dialog__footer',
-          className
-        )}>
-        {children}
-      </div>
+      <div className={classnames('modal__footer theme--dialog__footer', className)}>{children}</div>
     );
   }
 }
@@ -22,7 +16,7 @@ ModalFooter.propTypes = {
   children: PropTypes.node.isRequired,
 
   // Optional
-  className: PropTypes.string
+  className: PropTypes.string,
 };
 
 export default ModalFooter;

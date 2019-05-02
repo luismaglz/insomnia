@@ -15,14 +15,12 @@ class Curl {
 
     // Throw on deprecated options
     const disabledOpts = {
-      [nodeLibcurl.Curl.option.URL]: this.setUrl
+      [nodeLibcurl.Curl.option.URL]: this.setUrl,
     };
     if (disabledOpts[option]) {
       const name = Curl.optName(option);
       const newName = disabledOpts[option].name;
-      throw new Error(
-        `setOpt(${name}) is deprecated. Please use ${newName}() instead`
-      );
+      throw new Error(`setOpt(${name}) is deprecated. Please use ${newName}() instead`);
     }
 
     this._handle.setOpt(option, value);
@@ -37,9 +35,7 @@ class Curl {
   }
 
   static optName(opt) {
-    const name = Object.keys(Curl.option).find(
-      name => Curl.option[name] === opt
-    );
+    const name = Object.keys(Curl.option).find(name => Curl.option[name] === opt);
     return name || opt;
   }
 

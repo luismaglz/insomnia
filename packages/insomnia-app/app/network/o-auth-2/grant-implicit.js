@@ -1,9 +1,6 @@
 // @flow
 import * as c from './constants';
-import {
-  buildQueryStringFromParams,
-  joinUrlAndQueryString
-} from 'insomnia-url';
+import { buildQueryStringFromParams, joinUrlAndQueryString } from 'insomnia-url';
 import { responseToObject, authorizeUserInWindow } from './misc';
 
 export default async function(
@@ -14,11 +11,11 @@ export default async function(
   redirectUri: string = '',
   scope: string = '',
   state: string = '',
-  audience: string = ''
+  audience: string = '',
 ): Promise<Object> {
   const params = [
     { name: c.P_RESPONSE_TYPE, value: responseType },
-    { name: c.P_CLIENT_ID, value: clientId }
+    { name: c.P_CLIENT_ID, value: clientId },
   ];
 
   // Add optional params
@@ -39,11 +36,7 @@ export default async function(
   const qs = buildQueryStringFromParams(params);
   const finalUrl = joinUrlAndQueryString(authorizationUrl, qs);
 
-  const redirectedTo = await authorizeUserInWindow(
-    finalUrl,
-    /(access_token=)/,
-    /(error=)/
-  );
+  const redirectedTo = await authorizeUserInWindow(finalUrl, /(access_token=)/, /(error=)/);
   const fragment = redirectedTo.split('#')[1];
 
   if (fragment) {
@@ -55,7 +48,7 @@ export default async function(
       c.P_STATE,
       c.P_ERROR,
       c.P_ERROR_DESCRIPTION,
-      c.P_ERROR_URI
+      c.P_ERROR_URI,
     ]);
   } else {
     // Bad redirect

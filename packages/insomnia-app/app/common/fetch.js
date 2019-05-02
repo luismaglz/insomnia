@@ -37,7 +37,7 @@ export function rawFetch(...args) {
 async function _fetch(method, path, obj, sessionId = null) {
   const config = {
     method: method,
-    headers: new window.Headers()
+    headers: new window.Headers(),
   };
 
   // Set some client information
@@ -65,10 +65,7 @@ async function _fetch(method, path, obj, sessionId = null) {
     throw err;
   }
 
-  if (
-    response.headers.get('content-type') === 'application/json' ||
-    path.match(/\.json$/)
-  ) {
+  if (response.headers.get('content-type') === 'application/json' || path.match(/\.json$/)) {
     return response.json();
   } else {
     return response.text();

@@ -5,12 +5,17 @@ const MIMETYPE_JSON = 'application/json';
 const SUPPORTED_MIME_TYPES = [MIMETYPE_JSON];
 const WORKSPACE_ID = '__WORKSPACE_1__';
 
+let requestCount = 1;
+let requestGroupCount = 1;
+
 module.exports.id = 'swagger2';
 module.exports.name = 'Swagger 2.0';
-module.exports.description =
-  'Importer for Swagger 2.0 specification (json/yaml)';
+module.exports.description = 'Importer for Swagger 2.0 specification (json/yaml)';
 
 module.exports.convert = async function(rawData) {
+  requestCount = 1;
+  requestGroupCount = 1;
+
   // Validate
   const api = await parseDocument(rawData);
   if (!api || api.swagger !== SUPPORTED_SWAGGER_VERSION) {
@@ -23,7 +28,7 @@ module.exports.convert = async function(rawData) {
     _id: WORKSPACE_ID,
     parentId: null,
     name: `${api.info.title} ${api.info.version}`,
-    description: api.info.description || ''
+    description: api.info.description || '',
   };
 
   const baseEnv = {
@@ -32,8 +37,8 @@ module.exports.convert = async function(rawData) {
     parentId: '__WORKSPACE_1__',
     name: 'Base environment',
     data: {
-      base_url: '{{ scheme }}://{{ host }}{{ base_path }}'
-    }
+      base_url: '{{ scheme }}://{{ host }}{{ base_path }}',
+    },
   };
 
   const swaggerEnv = {
@@ -44,8 +49,8 @@ module.exports.convert = async function(rawData) {
     data: {
       base_path: api.basePath || '',
       scheme: (api.schemes || ['http'])[0],
-      host: api.host || ''
-    }
+      host: api.host || '',
+    },
   };
 
   const endpoints = parseEndpoints(api);
@@ -62,8 +67,7 @@ module.exports.convert = async function(rawData) {
  */
 async function parseDocument(rawData) {
   try {
-    const api =
-      unthrowableParseJson(rawData) || SwaggerParser.YAML.parse(rawData);
+    const api = unthrowableParseJson(rawData) || SwaggerParser.YAML.parse(rawData);
     if (!api) {
       return null;
     }
@@ -100,28 +104,76 @@ function parseEndpoints(document) {
       const schemasPerMethod = document.paths[path];
       const methods = Object.keys(schemasPerMethod);
 
-      return methods.map(method =>
-        Object.assign({}, schemasPerMethod[method], { path, method })
-      );
+      return methods
+        .filter(method => method !== 'parameters')
+        .map(method => Object.assign({}, schemasPerMethod[method], { path, method }));
     })
     .reduce((flat, arr) => flat.concat(arr), []); //flat single array
 
-  return endpointsSchemas.map((endpointSchema, index) => {
-    let { path, method, operationId: _id, summary } = endpointSchema;
-    const name = summary || `${method} ${path}`;
-
-    return {
-      _type: 'request',
-      _id: endpointSchema.operationId || `__REQUEST_${index}__`,
-      parentId: defaultParent,
-      name,
-      method: method.toUpperCase(),
-      url: '{{ base_url }}' + pathWithParamsAsVariables(path),
-      body: prepareBody(endpointSchema, globalMimeTypes),
-      headers: prepareHeaders(endpointSchema),
-      parameters: prepareQueryParams(endpointSchema)
-    };
+  const tags = document.tags || [];
+  const folders = tags.map(tag => {
+    return importFolderItem(tag, defaultParent);
   });
+  const folderLookup = {};
+  folders.forEach(folder => (folderLookup[folder.name] = folder._id));
+
+  const requests = [];
+  endpointsSchemas.map(endpointSchema => {
+    let { tags } = endpointSchema;
+    if (!tags || tags.length == 0) tags = [''];
+    tags.forEach((tag, index) => {
+      let id = endpointSchema.operationId
+        ? `${endpointSchema.operationId}${index > 0 ? index : ''}`
+        : `__REQUEST_${requestCount++}__`;
+      let parentId = folderLookup[tag] || defaultParent;
+      requests.push(importRequest(endpointSchema, globalMimeTypes, id, parentId));
+    });
+  });
+
+  return [...folders, ...requests];
+}
+
+/**
+ * Return Insomnia folder / request group
+ *
+ *
+ * @param {Object} item - swagger 2.0 endpoint schema
+ * @param {string} parentId - id of parent category
+ * @returns {Object}
+ */
+function importFolderItem(item, parentId) {
+  return {
+    parentId,
+    _id: `__GRP_${requestGroupCount++}__`,
+    _type: 'request_group',
+    name: item.name || `Folder {requestGroupCount}`,
+    description: item.description || '',
+  };
+}
+
+/**
+ * Return Insomnia request
+ *
+ *
+ * @param {Object} endpointSchema - swagger 2.0 endpoint schema
+ * @param {string[]} globalMimeTypes - list of mimeTypes available in document globally (i.e. document.consumes)
+ * @param {string} id - id to be given to current request
+ * @param {string} parentId - id of parent category
+ * @returns {Object}
+ */
+function importRequest(endpointSchema, globalMimeTypes, id, parentId) {
+  const name = endpointSchema.summary || `${endpointSchema.method} ${endpointSchema.path}`;
+  return {
+    _type: 'request',
+    _id: id,
+    parentId: parentId,
+    name,
+    method: endpointSchema.method.toUpperCase(),
+    url: '{{ base_url }}' + pathWithParamsAsVariables(endpointSchema.path),
+    body: prepareBody(endpointSchema, globalMimeTypes),
+    headers: prepareHeaders(endpointSchema),
+    parameters: prepareQueryParams(endpointSchema),
+  };
 }
 
 /**
@@ -183,23 +235,21 @@ function prepareBody(endpointSchema, globalMimeTypes) {
     const bodyParameter = parameters.find(isSendInBody);
     if (!bodyParameter) {
       return {
-        mimeType: supportedMimeType
+        mimeType: supportedMimeType,
       };
     }
 
-    const example = bodyParameter
-      ? generateParameterExample(bodyParameter.schema)
-      : undefined;
+    const example = bodyParameter ? generateParameterExample(bodyParameter.schema) : undefined;
     const text = JSON.stringify(example, null, 2);
     return {
       mimeType: supportedMimeType,
-      text
+      text,
     };
   }
 
   if (mimeTypes && mimeTypes.length) {
     return {
-      mimeType: mimeTypes[0] || undefined
+      mimeType: mimeTypes[0] || undefined,
     };
   } else {
     return {};
@@ -218,7 +268,7 @@ function convertParameters(parameters) {
     return {
       name,
       disabled: required !== true,
-      value: `${generateParameterExample(parameter)}`
+      value: `${generateParameterExample(parameter)}`,
     };
   });
 }
@@ -248,9 +298,7 @@ function generateParameterExample(schema) {
       const { properties } = schema;
 
       Object.keys(properties).forEach(propertyName => {
-        example[propertyName] = generateParameterExample(
-          properties[propertyName]
-        );
+        example[propertyName] = generateParameterExample(properties[propertyName]);
       });
 
       return example;
@@ -262,7 +310,7 @@ function generateParameterExample(schema) {
       } else {
         return [value];
       }
-    }
+    },
   };
 
   if (typeof schema === 'string') {

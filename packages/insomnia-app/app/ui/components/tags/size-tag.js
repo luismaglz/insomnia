@@ -10,7 +10,7 @@ type Props = {
 
   // Optional
   small?: boolean,
-  className?: string
+  className?: string,
 };
 
 class SizeTag extends React.PureComponent<Props> {
@@ -23,16 +23,12 @@ class SizeTag extends React.PureComponent<Props> {
         <tbody>
           <tr>
             <td className="text-left pad-right">Read</td>
-            <td className="text-right selectable no-wrap">
-              {responseSizeReadString}
-            </td>
+            <td className="text-right selectable no-wrap">{responseSizeReadString}</td>
           </tr>
           {bytesContent >= 0 && (
             <tr>
               <td className="text-left pad-right">Content</td>
-              <td className="text-right selectable no-wrap">
-                {responseSizeRawString}
-              </td>
+              <td className="text-right selectable no-wrap">{responseSizeRawString}</td>
             </tr>
           )}
         </tbody>

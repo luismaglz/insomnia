@@ -21,7 +21,7 @@ export type BaseModel = {
   type: string,
   parentId: string,
   modified: number,
-  created: number
+  created: number,
 };
 
 // Reference to each model
@@ -57,7 +57,7 @@ export function all() {
     response,
     oAuth2Token,
     clientCertificate,
-    pluginData
+    pluginData,
   ];
 }
 
@@ -88,19 +88,14 @@ export function getModelName(type: string, count: number = 1) {
   }
 }
 
-export async function initModel<T: BaseModel>(
-  type: string,
-  ...sources: Array<Object>
-): Promise<T> {
+export async function initModel<T: BaseModel>(type: string, ...sources: Array<Object>): Promise<T> {
   const model = getModel(type);
 
   if (!model) {
     const choices = all()
       .map(m => m.type)
       .join(', ');
-    throw new Error(
-      `Tried to init invalid model "${type}". Choices are ${choices}`
-    );
+    throw new Error(`Tried to init invalid model "${type}". Choices are ${choices}`);
   }
 
   // Define global default fields
@@ -111,9 +106,9 @@ export async function initModel<T: BaseModel>(
       type: type,
       parentId: null,
       modified: Date.now(),
-      created: Date.now()
+      created: Date.now(),
     },
-    model.init()
+    model.init(),
   );
 
   const fullObject = Object.assign({}, objectDefaults, ...sources);

@@ -19,15 +19,12 @@ module.exports = function(source, options) {
     {
       indent: '  ',
       short: false,
-      verbose: false
+      verbose: false,
     },
-    options
+    options,
   );
 
-  var code = new CodeBuilder(
-    opts.indent,
-    opts.indent !== false ? ' \\\n' + opts.indent : ' '
-  );
+  var code = new CodeBuilder(opts.indent, opts.indent !== false ? ' \\\n' + opts.indent : ' ');
 
   if (opts.verbose) {
     code.push('wget %s', opts.short ? '-v' : '--verbose');
@@ -43,14 +40,10 @@ module.exports = function(source, options) {
   });
 
   if (source.postData.text) {
-    code.push(
-      '--body-data ' + helpers.escape(helpers.quote(source.postData.text))
-    );
+    code.push('--body-data ' + helpers.escape(helpers.quote(source.postData.text)));
   }
 
-  code
-    .push(opts.short ? '-O' : '--output-document')
-    .push('- %s', helpers.quote(source.fullUrl));
+  code.push(opts.short ? '-O' : '--output-document').push('- %s', helpers.quote(source.fullUrl));
 
   return code.join();
 };
@@ -59,5 +52,5 @@ module.exports.info = {
   key: 'wget',
   title: 'Wget',
   link: 'https://www.gnu.org/software/wget/',
-  description: 'a free software package for retrieving files using HTTP, HTTPS'
+  description: 'a free software package for retrieving files using HTTP, HTTPS',
 };

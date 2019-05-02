@@ -22,7 +22,7 @@ class KeyValueEditorRow extends PureComponent {
     this._nameInput = null;
     this._valueInput = null;
     this.state = {
-      dragDirection: 0
+      dragDirection: 0,
     };
   }
 
@@ -73,10 +73,7 @@ class KeyValueEditorRow extends PureComponent {
       // Insert the pasted text into the current selection. Unfortunately, this
       // is the easiest way to do this.
       const currentValue = this._valueInput.getValue();
-      const prefix = currentValue.slice(
-        0,
-        this._valueInput.getSelectionStart()
-      );
+      const prefix = currentValue.slice(0, this._valueInput.getSelectionStart());
       const suffix = currentValue.slice(this._valueInput.getSelectionEnd());
       const finalValue = `${prefix}${value}${suffix}`;
 
@@ -166,7 +163,7 @@ class KeyValueEditorRow extends PureComponent {
       mode: pair.multiline || 'text/plain',
       onModeChange: mode => {
         this._handleTypeChange(Object.assign({}, pair, { multiline: mode }));
-      }
+      },
     });
   }
 
@@ -179,7 +176,8 @@ class KeyValueEditorRow extends PureComponent {
       valuePlaceholder,
       handleRender,
       handleGetRenderContext,
-      nunjucksPowerUserMode
+      nunjucksPowerUserMode,
+      isVariableUncovered,
     } = this.props;
 
     if (pair.type === 'file') {
@@ -220,6 +218,7 @@ class KeyValueEditorRow extends PureComponent {
           render={handleRender}
           getRenderContext={handleGetRenderContext}
           nunjucksPowerUserMode={nunjucksPowerUserMode}
+          isVariableUncovered={isVariableUncovered}
           getAutocompleteConstants={this._handleAutocompleteValues}
         />
       );
@@ -250,9 +249,7 @@ class KeyValueEditorRow extends PureComponent {
           <DropdownButton className="tall">
             <i className="fa fa-caret-down" />
           </DropdownButton>
-          <DropdownItem
-            onClick={this._handleTypeChange}
-            value={{ type: 'text', multiline: false }}>
+          <DropdownItem onClick={this._handleTypeChange} value={{ type: 'text', multiline: false }}>
             Text
           </DropdownItem>
           {allowMultiline && (
@@ -263,9 +260,7 @@ class KeyValueEditorRow extends PureComponent {
             </DropdownItem>
           )}
           {allowFile && (
-            <DropdownItem
-              onClick={this._handleTypeChange}
-              value={{ type: 'file' }}>
+            <DropdownItem onClick={this._handleTypeChange} value={{ type: 'file' }}>
               File
             </DropdownItem>
           )}
@@ -283,6 +278,7 @@ class KeyValueEditorRow extends PureComponent {
       handleRender,
       handleGetRenderContext,
       nunjucksPowerUserMode,
+      isVariableUncovered,
       sortable,
       noDropZone,
       hideButtons,
@@ -295,7 +291,7 @@ class KeyValueEditorRow extends PureComponent {
       renderLeftIcon,
       connectDragSource,
       connectDragPreview,
-      connectDropTarget
+      connectDropTarget,
     } = this.props;
 
     const { dragDirection } = this.state;
@@ -303,11 +299,9 @@ class KeyValueEditorRow extends PureComponent {
     const classes = classnames(className, {
       'key-value-editor__row-wrapper': true,
       'key-value-editor__row-wrapper--dragging': isDragging,
-      'key-value-editor__row-wrapper--dragging-above':
-        isDraggingOver && dragDirection > 0,
-      'key-value-editor__row-wrapper--dragging-below':
-        isDraggingOver && dragDirection < 0,
-      'key-value-editor__row-wrapper--disabled': pair.disabled
+      'key-value-editor__row-wrapper--dragging-above': isDraggingOver && dragDirection > 0,
+      'key-value-editor__row-wrapper--dragging-below': isDraggingOver && dragDirection < 0,
+      'key-value-editor__row-wrapper--disabled': pair.disabled,
     });
 
     let handle = null;
@@ -318,7 +312,7 @@ class KeyValueEditorRow extends PureComponent {
         connectDragSource(
           <div className="key-value-editor__drag">
             <i className={'fa ' + (hideButtons ? 'fa-empty' : 'fa-reorder')} />
-          </div>
+          </div>,
         )
       );
     }
@@ -328,12 +322,9 @@ class KeyValueEditorRow extends PureComponent {
         {handle}
         <div className="key-value-editor__row">
           <div
-            className={classnames(
-              'form-control form-control--underlined form-control--wide',
-              {
-                'form-control--inactive': pair.disabled
-              }
-            )}>
+            className={classnames('form-control form-control--underlined form-control--wide', {
+              'form-control--inactive': pair.disabled,
+            })}>
             <OneLineEditor
               ref={this._setNameInputRef}
               placeholder={namePlaceholder || 'Name'}
@@ -341,6 +332,7 @@ class KeyValueEditorRow extends PureComponent {
               render={handleRender}
               getRenderContext={handleGetRenderContext}
               nunjucksPowerUserMode={nunjucksPowerUserMode}
+              isVariableUncovered={isVariableUncovered}
               getAutocompleteConstants={this._handleAutocompleteNames}
               forceInput={forceInput}
               readOnly={readOnly}
@@ -354,8 +346,8 @@ class KeyValueEditorRow extends PureComponent {
             className={classnames(
               'form-control form-control--underlined form-control--wide no-min-width',
               {
-                'form-control--inactive': pair.disabled
-              }
+                'form-control--inactive': pair.disabled,
+              },
             )}>
             {this.renderPairValue()}
           </div>
@@ -419,7 +411,7 @@ KeyValueEditorRow.propTypes = {
     value: PropTypes.string,
     fileName: PropTypes.string,
     type: PropTypes.string,
-    disabled: PropTypes.bool
+    disabled: PropTypes.bool,
   }).isRequired,
 
   // Optional
@@ -431,6 +423,7 @@ KeyValueEditorRow.propTypes = {
   handleRender: PropTypes.func,
   handleGetRenderContext: PropTypes.func,
   nunjucksPowerUserMode: PropTypes.bool,
+  isVariableUncovered: PropTypes.bool,
   handleGetAutocompleteNameConstants: PropTypes.func,
   handleGetAutocompleteValueConstants: PropTypes.func,
   namePlaceholder: PropTypes.string,
@@ -451,13 +444,13 @@ KeyValueEditorRow.propTypes = {
   connectDragPreview: PropTypes.func,
   connectDropTarget: PropTypes.func,
   isDragging: PropTypes.bool,
-  isDraggingOver: PropTypes.bool
+  isDraggingOver: PropTypes.bool,
 };
 
 const dragSource = {
   beginDrag(props) {
     return { pair: props.pair };
-  }
+  },
 };
 
 function isAbove(monitor, component) {
@@ -485,30 +478,26 @@ const dragTarget = {
     } else {
       component.decoratedComponentInstance.setDragDirection(-1);
     }
-  }
+  },
 };
 
 function sourceCollect(connect, monitor) {
   return {
     connectDragSource: connect.dragSource(),
     connectDragPreview: connect.dragPreview(),
-    isDragging: monitor.isDragging()
+    isDragging: monitor.isDragging(),
   };
 }
 
 function targetCollect(connect, monitor) {
   return {
     connectDropTarget: connect.dropTarget(),
-    isDraggingOver: monitor.isOver()
+    isDraggingOver: monitor.isOver(),
   };
 }
 
-const source = DragSource('KEY_VALUE_EDITOR', dragSource, sourceCollect)(
-  KeyValueEditorRow
-);
-const target = DropTarget('KEY_VALUE_EDITOR', dragTarget, targetCollect)(
-  source
-);
+const source = DragSource('KEY_VALUE_EDITOR', dragSource, sourceCollect)(KeyValueEditorRow);
+const target = DropTarget('KEY_VALUE_EDITOR', dragTarget, targetCollect)(source);
 
 target.prototype.focusNameEnd = function() {
   this.handler.component.decoratedComponentInstance.focusNameEnd();

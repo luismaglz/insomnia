@@ -23,12 +23,12 @@ export async function login(rawEmail, rawPassphrase) {
     Buffer.from(saltAuth, 'hex'),
     Buffer.from(email, 'utf8'),
     Buffer.from(authSecret, 'hex'),
-    Buffer.from(secret1, 'hex')
+    Buffer.from(secret1, 'hex'),
   );
   const srpA = c.computeA().toString('hex');
   const { sessionStarterId, srpB } = await util.post('/auth/login-a', {
     srpA,
-    email
+    email,
   });
 
   // ~~~~~~~~~~~~~~~~~~~~~ //
@@ -39,7 +39,7 @@ export async function login(rawEmail, rawPassphrase) {
   const srpM1 = c.computeM1().toString('hex');
   const { srpM2 } = await util.post('/auth/login-m1', {
     srpM1,
-    sessionStarterId
+    sessionStarterId,
   });
 
   // ~~~~~~~~~~~~~~~~~~~~~~~~~ //
@@ -63,14 +63,11 @@ export async function login(rawEmail, rawPassphrase) {
     saltEnc,
     accountId,
     firstName,
-    lastName
+    lastName,
   } = await whoami(sessionId);
 
   const derivedSymmetricKey = await crypt.deriveKey(passphrase, email, saltEnc);
-  const symmetricKeyStr = await crypt.decryptAES(
-    derivedSymmetricKey,
-    JSON.parse(encSymmetricKey)
-  );
+  const symmetricKeyStr = await crypt.decryptAES(derivedSymmetricKey, JSON.parse(encSymmetricKey));
 
   // Store the information for later
   setSessionData(
@@ -81,19 +78,15 @@ export async function login(rawEmail, rawPassphrase) {
     email,
     JSON.parse(symmetricKeyStr),
     JSON.parse(publicKey),
-    JSON.parse(encPrivateKey)
+    JSON.parse(encPrivateKey),
   );
 }
 
-export function syncCreateResourceGroup(
-  parentResourceId,
-  name,
-  encSymmetricKey
-) {
+export function syncCreateResourceGroup(parentResourceId, name, encSymmetricKey) {
   return util.post('/api/resource_groups', {
     parentResourceId,
     name,
-    encSymmetricKey
+    encSymmetricKey,
   });
 }
 
@@ -123,10 +116,9 @@ export function unshareWithAllTeams(resourceGroupId) {
 
 export async function shareWithTeam(resourceGroupId, teamId, rawPassphrase) {
   // Ask the server what we need to do to invite the member
-  const instructions = await util.post(
-    `/api/resource_groups/${resourceGroupId}/share-a`,
-    { teamId }
-  );
+  const instructions = await util.post(`/api/resource_groups/${resourceGroupId}/share-a`, {
+    teamId,
+  });
 
   // Compute keys necessary to invite the member
   const passPhrase = _sanitizePassphrase(rawPassphrase);
@@ -138,30 +130,24 @@ export async function shareWithTeam(resourceGroupId, teamId, rawPassphrase) {
   } catch (err) {
     throw new Error('Invalid password');
   }
-  const privateKey = crypt.decryptAES(
-    JSON.parse(symmetricKey),
-    JSON.parse(encPrivateKey)
-  );
+  const privateKey = crypt.decryptAES(JSON.parse(symmetricKey), JSON.parse(encPrivateKey));
   const privateKeyJWK = JSON.parse(privateKey);
   const resourceGroupSymmetricKey = crypt.decryptRSAWithJWK(
     privateKeyJWK,
-    instructions.encSymmetricKey
+    instructions.encSymmetricKey,
   );
 
   // Build the invite data request
   const newKeys = {};
   for (const accountId of Object.keys(instructions.keys)) {
     const accountPublicKeyJWK = JSON.parse(instructions.keys[accountId]);
-    newKeys[accountId] = crypt.encryptRSAWithJWK(
-      accountPublicKeyJWK,
-      resourceGroupSymmetricKey
-    );
+    newKeys[accountId] = crypt.encryptRSAWithJWK(accountPublicKeyJWK, resourceGroupSymmetricKey);
   }
 
   // Actually share it with the team
   await util.post(`/api/resource_groups/${resourceGroupId}/share-b`, {
     teamId,
-    keys: newKeys
+    keys: newKeys,
   });
 }
 
@@ -223,7 +209,7 @@ export function setSessionData(
   email,
   symmetricKey,
   publicKey,
-  encPrivateKey
+  encPrivateKey,
 ) {
   const dataStr = JSON.stringify({
     id: sessionId,
@@ -233,7 +219,7 @@ export function setSessionData(
     encPrivateKey: encPrivateKey,
     email: email,
     firstName: firstName,
-    lastName: lastName
+    lastName: lastName,
   });
 
   window.localStorage.setItem(getSessionKey(sessionId), dataStr);

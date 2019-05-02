@@ -32,7 +32,7 @@ let nunjucksAll = null;
  */
 export function render(
   text: string,
-  config: { context?: Object, path?: string, renderMode?: string } = {}
+  config: { context?: Object, path?: string, renderMode?: string } = {},
 ): Promise<string> {
   const context = config.context || {};
   const path = config.path || null;
@@ -52,9 +52,7 @@ export function render(
         const location = err.message.match(/\[Line (\d)+, Column (\d)*]/);
         const line = location ? parseInt(location[1]) : 1;
         const column = location ? parseInt(location[2]) : 1;
-        const reason = err.message.includes(
-          'attempted to output null or undefined value'
-        )
+        const reason = err.message.includes('attempted to output null or undefined value')
           ? 'undefined'
           : 'error';
 
@@ -95,7 +93,7 @@ export async function getTagDefinitions(): Promise<Array<NunjucksParsedTag>> {
       name: ext.getTag(),
       displayName: ext.getName(),
       description: ext.getDescription(),
-      args: ext.getArgs()
+      args: ext.getArgs(),
     }));
 }
 
@@ -125,8 +123,8 @@ async function getNunjucks(renderMode: string) {
       variableStart: '{{',
       variableEnd: '}}',
       commentStart: '{#',
-      commentEnd: '#}'
-    }
+      commentEnd: '#}',
+    },
   };
 
   if (renderMode === RENDER_VARS) {

@@ -6,12 +6,7 @@ import * as updates from './main/updates';
 import * as windowUtils from './main/window-utils';
 import * as models from './models/index';
 import * as database from './common/database';
-import {
-  CHANGELOG_BASE_URL,
-  getAppVersion,
-  isDevelopment,
-  isMac
-} from './common/constants';
+import { CHANGELOG_BASE_URL, getAppVersion, isDevelopment, isMac } from './common/constants';
 import type { ToastNotification } from './ui/components/toast';
 import type { Stats } from './models/stats';
 
@@ -114,13 +109,12 @@ async function _trackStats() {
     lastLaunch: oldStats.currentLaunch,
     currentVersion: getAppVersion(),
     lastVersion: oldStats.currentVersion,
-    launches: oldStats.launches + 1
+    launches: oldStats.launches + 1,
   });
 
   // Update Stats Object
   const firstLaunch = stats.launches === 1;
-  const justUpdated =
-    !firstLaunch && stats.currentVersion !== stats.lastVersion;
+  const justUpdated = !firstLaunch && stats.currentVersion !== stats.lastVersion;
 
   ipcMain.once('window-ready', () => {
     const { currentVersion } = stats;
@@ -134,7 +128,7 @@ async function _trackStats() {
       url: `${CHANGELOG_BASE_URL}/${currentVersion}/`,
       cta: "See What's New",
       message: `Updated to ${currentVersion}`,
-      email: 'support@insomnia.rest'
+      email: 'support@insomnia.rest',
     };
 
     // Wait a bit before showing the user because the app just launched.

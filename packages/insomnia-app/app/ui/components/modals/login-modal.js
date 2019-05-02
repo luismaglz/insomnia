@@ -18,7 +18,7 @@ class LoginModal extends PureComponent {
       loading: false,
       error: '',
       title: '',
-      message: ''
+      message: '',
     };
   }
 
@@ -72,9 +72,7 @@ class LoginModal extends PureComponent {
     let inner;
     if (step === 1) {
       inner = [
-        <ModalHeader key="header">
-          {title || 'Login to Your Account'}
-        </ModalHeader>,
+        <ModalHeader key="header">{title || 'Login to Your Account'}</ModalHeader>,
         <ModalBody key="body" className="pad">
           {message ? <p className="notice info">{message}</p> : null}
           <div className="form-control form-control--outlined no-pad-top">
@@ -103,16 +101,13 @@ class LoginModal extends PureComponent {
         </ModalBody>,
         <ModalFooter key="footer">
           <div className="margin-left">
-            Don't have an account yet?{' '}
-            <Link href="https://insomnia.rest/app/">Signup</Link>
+            Don't have an account yet? <Link href="https://insomnia.rest/app/">Signup</Link>
           </div>
           <button type="submit" className="btn">
-            {loading ? (
-              <i className="fa fa-spin fa-refresh margin-right-sm" />
-            ) : null}
+            {loading ? <i className="fa fa-spin fa-refresh margin-right-sm" /> : null}
             Login
           </button>
-        </ModalFooter>
+        </ModalFooter>,
       ];
     } else {
       inner = [
@@ -121,16 +116,14 @@ class LoginModal extends PureComponent {
           <h1>Enjoy your stay!</h1>
           <p>
             If you have any questions or concerns, send you email to{' '}
-            <Link href="https://insomnia.rest/support/">
-              support@insomnia.rest
-            </Link>
+            <Link href="https://insomnia.rest/support/">support@insomnia.rest</Link>
           </p>
         </ModalBody>,
         <ModalFooter key="footer">
           <button type="button" className="btn" onClick={this.hide}>
             Close
           </button>
-        </ModalFooter>
+        </ModalFooter>,
       ];
     }
 

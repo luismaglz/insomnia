@@ -20,14 +20,12 @@ describe('init()', () => {
       'getStatusMessage',
       'getTime',
       'hasHeader',
-      'setBody'
+      'setBody',
     ]);
   });
 
   it('fails to initialize without response', () => {
-    expect(() => plugin.init()).toThrowError(
-      'contexts.response initialized without response'
-    );
+    expect(() => plugin.init()).toThrowError('contexts.response initialized without response');
   });
 });
 
@@ -44,7 +42,7 @@ describe('response.*', () => {
       statusCode: 200,
       statusMessage: 'OK',
       bytesRead: 123,
-      elapsedTime: 321
+      elapsedTime: 321,
     });
     const result = plugin.init(response);
     expect(result.response.getRequestId()).toBe('req_1');
@@ -68,16 +66,13 @@ describe('response.*', () => {
       headers: [
         { name: 'content-type', value: 'application/json' },
         { name: 'set-cookie', value: 'foo=bar' },
-        { name: 'set-cookie', value: 'baz=qux' }
-      ]
+        { name: 'set-cookie', value: 'baz=qux' },
+      ],
     };
     const result = plugin.init(response);
     expect(result.response.getHeader('Does-Not-Exist')).toBeNull();
     expect(result.response.getHeader('CONTENT-TYPE')).toBe('application/json');
-    expect(result.response.getHeader('set-cookie')).toEqual([
-      'foo=bar',
-      'baz=qux'
-    ]);
+    expect(result.response.getHeader('set-cookie')).toEqual(['foo=bar', 'baz=qux']);
     expect(result.response.hasHeader('foo')).toBe(false);
     expect(result.response.hasHeader('ConTent-Type')).toBe(true);
   });

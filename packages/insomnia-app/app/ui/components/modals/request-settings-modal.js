@@ -18,9 +18,10 @@ type Props = {
   editorKeyMap: string,
   editorLineWrapping: boolean,
   nunjucksPowerUserMode: boolean,
+  isVariableUncovered: boolean,
   handleRender: Function,
   handleGetRenderContext: Function,
-  workspaces: Array<Workspace>
+  workspaces: Array<Workspace>,
 };
 
 type State = {
@@ -30,7 +31,7 @@ type State = {
   activeWorkspaceIdToCopyTo: string | null,
   workspace: Workspace | null,
   justCopied: boolean,
-  justMoved: boolean
+  justMoved: boolean,
 };
 
 @autobind
@@ -48,7 +49,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       workspace: null,
       workspaces: [],
       justCopied: false,
-      justMoved: false
+      justMoved: false,
     };
   }
 
@@ -69,7 +70,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
     const value = e.currentTarget.checked;
     const setting = e.currentTarget.name;
     const request = await models.request.update(this.state.request, {
-      [setting]: value
+      [setting]: value,
     });
     this.setState({ request });
   }
@@ -87,7 +88,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       return;
     }
     const request = await models.request.update(this.state.request, {
-      description
+      description,
     });
     this.setState({ request, defaultPreviewMode: false });
   }
@@ -97,7 +98,8 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
   }
 
   _handleUpdateMoveCopyWorkspace(e: SyntheticEvent<HTMLSelectElement>) {
-    const workspaceId = e.currentTarget.value;
+    const { value } = e.currentTarget;
+    const workspaceId = value === '__NULL__' ? null : value;
     this.setState({ activeWorkspaceIdToCopyTo: workspaceId });
   }
 
@@ -107,16 +109,14 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       return;
     }
 
-    const workspace = await models.workspace.getById(
-      activeWorkspaceIdToCopyTo || 'n/a'
-    );
+    const workspace = await models.workspace.getById(activeWorkspaceIdToCopyTo || 'n/a');
     if (!workspace) {
       return;
     }
 
     await models.request.update(request, {
       sortKey: -1e9, // Move to top of sort order
-      parentId: activeWorkspaceIdToCopyTo
+      parentId: activeWorkspaceIdToCopyTo,
     });
 
     this.setState({ justMoved: true });
@@ -131,9 +131,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       return;
     }
 
-    const workspace = await models.workspace.getById(
-      activeWorkspaceIdToCopyTo || 'n/a'
-    );
+    const workspace = await models.workspace.getById(activeWorkspaceIdToCopyTo || 'n/a');
     if (!workspace) {
       return;
     }
@@ -142,7 +140,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
     await models.request.update(newRequest, {
       sortKey: -1e9, // Move to top of sort order
       name: request.name, // Because duplicate will add (Copy) suffix
-      parentId: activeWorkspaceIdToCopyTo
+      parentId: activeWorkspaceIdToCopyTo,
     });
 
     this.setState({ justCopied: true });
@@ -151,13 +149,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
     }, 2000);
   }
 
-  async show({
-    request,
-    forceEditMode
-  }: {
-    request: Request,
-    forceEditMode: boolean
-  }) {
+  async show({ request, forceEditMode }: { request: Request, forceEditMode: boolean }) {
     const { workspaces } = this.props;
 
     const hasDescription = !!request.description;
@@ -172,9 +164,9 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       {
         request,
         workspace: workspace,
-        activeWorkspaceIdToCopyTo: workspace ? workspace._id : 'n/a',
+        activeWorkspaceIdToCopyTo: null,
         showDescription: forceEditMode || hasDescription,
-        defaultPreviewMode: hasDescription && !forceEditMode
+        defaultPreviewMode: hasDescription && !forceEditMode,
       },
       () => {
         this.modal && this.modal.show();
@@ -184,7 +176,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
             this._editor && this._editor.focus();
           }, 400);
         }
-      }
+      },
     );
   }
 
@@ -217,7 +209,8 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       handleRender,
       handleGetRenderContext,
       nunjucksPowerUserMode,
-      workspaces
+      isVariableUncovered,
+      workspaces,
     } = this.props;
 
     const {
@@ -226,7 +219,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       activeWorkspaceIdToCopyTo,
       justMoved,
       justCopied,
-      workspace
+      workspace,
     } = this.state;
 
     return (
@@ -234,9 +227,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
         <div className="form-control form-control--outlined">
           <label>
             Name{' '}
-            <span className="txt-sm faint italic">
-              (also rename by double-clicking in sidebar)
-            </span>
+            <span className="txt-sm faint italic">(also rename by double-clicking in sidebar)</span>
             <DebouncedInput
               delay={500}
               type="text"
@@ -259,6 +250,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
             handleRender={handleRender}
             handleGetRenderContext={handleGetRenderContext}
             nunjucksPowerUserMode={nunjucksPowerUserMode}
+            isVariableUncovered={isVariableUncovered}
             defaultValue={request.description}
             onChange={this._handleDescriptionChange}
           />
@@ -287,8 +279,8 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
               Automatically encode special characters in URL
               {this.renderCheckboxInput('settingEncodeUrl')}
               <HelpTooltip position="top" className="space-left">
-                Automatically encode special characters at send time (does not
-                apply to query parameters editor)
+                Automatically encode special characters at send time (does not apply to query
+                parameters editor)
               </HelpTooltip>
             </label>
           </div>
@@ -297,8 +289,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
               Skip rendering of request body
               {this.renderCheckboxInput('settingDisableRenderRequestBody')}
               <HelpTooltip position="top" className="space-left">
-                Disable rendering of environment variables and tags for the
-                request body
+                Disable rendering of environment variables and tags for the request body
               </HelpTooltip>
             </label>
           </div>
@@ -306,9 +297,9 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
             <label>
               Rebuild path dot sequences
               <HelpTooltip position="top" className="space-left">
-                This instructs libcurl to squash sequences of "/../" or "/./"
-                that may exist in the URL's path part and that is supposed to be
-                removed according to RFC 3986 section 5.2.4
+                This instructs libcurl to squash sequences of "/../" or "/./" that may exist in the
+                URL's path part and that is supposed to be removed according to RFC 3986 section
+                5.2.4
               </HelpTooltip>
               {this.renderCheckboxInput('settingRebuildPath')}
             </label>
@@ -319,13 +310,13 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
               <label>
                 Move/Copy to Workspace
                 <HelpTooltip position="top" className="space-left">
-                  Copy or move the current request to a new workspace. It will
-                  be placed at the root of the new workspace's folder structure.
+                  Copy or move the current request to a new workspace. It will be placed at the root
+                  of the new workspace's folder structure.
                 </HelpTooltip>
                 <select
-                  value={activeWorkspaceIdToCopyTo}
+                  value={activeWorkspaceIdToCopyTo || '__NULL__'}
                   onChange={this._handleUpdateMoveCopyWorkspace}>
-                  <option value="n/a">-- Select Workspace --</option>
+                  <option value="__NULL__">-- Select Workspace --</option>
                   {workspaces.map(w => {
                     if (workspace && workspace._id === w._id) {
                       return null;
@@ -342,7 +333,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
             </div>
             <div className="form-control form-control--no-label width-auto">
               <button
-                disabled={justCopied}
+                disabled={justCopied || !activeWorkspaceIdToCopyTo}
                 className="btn btn--clicky"
                 onClick={this._handleCopyToWorkspace}>
                 {justCopied ? 'Copied!' : 'Copy'}
@@ -350,7 +341,7 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
             </div>
             <div className="form-control form-control--no-label width-auto">
               <button
-                disabled={justMoved}
+                disabled={justMoved || !activeWorkspaceIdToCopyTo}
                 className="btn btn--clicky"
                 onClick={this._handleMoveToWorkspace}>
                 {justMoved ? 'Moved!' : 'Move'}
@@ -368,13 +359,9 @@ class RequestSettingsModal extends React.PureComponent<Props, State> {
       <Modal ref={this._setModalRef} freshState>
         <ModalHeader>
           Request Settings{' '}
-          <span className="txt-sm selectable faint monospace">
-            {request ? request._id : ''}
-          </span>
+          <span className="txt-sm selectable faint monospace">{request ? request._id : ''}</span>
         </ModalHeader>
-        <ModalBody className="pad">
-          {request ? this.renderModalBody(request) : null}
-        </ModalBody>
+        <ModalBody className="pad">{request ? this.renderModalBody(request) : null}</ModalBody>
       </Modal>
     );
   }

@@ -10,10 +10,7 @@ export async function init() {
   const store = configureStore();
 
   // Do things that must happen before initial render
-  const { addChanges, addChangesSync } = bindActionCreators(
-    entities,
-    store.dispatch
-  );
+  const { addChanges, addChangesSync } = bindActionCreators(entities, store.dispatch);
   const { newCommand } = bindActionCreators(global, store.dispatch);
 
   const allDocs = await getAllDocs();
@@ -33,7 +30,7 @@ export async function init() {
 
 export const reducer = combineReducers({
   entities: entities.reducer,
-  global: global.reducer
+  global: global.reducer,
 });
 
 /**
@@ -53,7 +50,7 @@ async function getAllDocs() {
     ...(await models.requestMeta.all()),
     ...(await models.response.all()),
     ...(await models.oAuth2Token.all()),
-    ...(await models.clientCertificate.all())
+    ...(await models.clientCertificate.all()),
   ];
 
   return allDocs;

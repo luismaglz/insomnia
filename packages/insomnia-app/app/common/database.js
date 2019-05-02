@@ -6,6 +6,7 @@ import NeDB from 'nedb';
 import fsPath from 'path';
 import { DB_PERSIST_INTERVAL } from './constants';
 import uuid from 'uuid';
+import { getDataDirectory } from './misc';
 
 export const CHANGE_INSERT = 'insert';
 export const CHANGE_UPDATE = 'update';
@@ -13,7 +14,7 @@ export const CHANGE_REMOVE = 'remove';
 
 const database = {};
 const db = {
-  _empty: true
+  _empty: true,
 };
 
 // ~~~~~~~ //
@@ -26,9 +27,7 @@ function allTypes() {
 
 function getDBFilePath(modelType) {
   // NOTE: Do not EVER change this. EVER!
-  const { app } = electron.remote || electron;
-  const basePath = app.getPath('userData');
-  return fsPath.join(basePath, `insomnia.${modelType}.db`);
+  return fsPath.join(getDataDirectory(), `insomnia.${modelType}.db`);
 }
 
 export async function initClient() {
@@ -40,11 +39,7 @@ export async function initClient() {
   console.log('[db] Initialized DB client');
 }
 
-export async function init(
-  types: Array<string>,
-  config: Object = {},
-  forceReset: boolean = false
-) {
+export async function init(types: Array<string>, config: Object = {}, forceReset: boolean = false) {
   if (forceReset) {
     changeListeners = [];
     for (const attr of Object.keys(db)) {
@@ -68,10 +63,10 @@ export async function init(
       Object.assign(
         {
           autoload: true,
-          filename: filePath
+          filename: filePath,
         },
-        config
-      )
+        config,
+      ),
     );
 
     collection.persistence.setAutocompactionInterval(DB_PERSIST_INTERVAL);
@@ -111,9 +106,7 @@ export async function init(
         try {
           await m.hookRemove(doc);
         } catch (err) {
-          console.log(
-            `[db] Delete hook failed for ${type} ${doc._id}: ${err.message}`
-          );
+          console.log(`[db] Delete hook failed for ${type} ${doc._id}: ${err.message}`);
         }
       }
 
@@ -121,9 +114,7 @@ export async function init(
         try {
           await m.hookInsert(doc);
         } catch (err) {
-          console.log(
-            `[db] Insert hook failed for ${type} ${doc._id}: ${err.message}`
-          );
+          console.log(`[db] Insert hook failed for ${type} ${doc._id}: ${err.message}`);
         }
       }
 
@@ -131,13 +122,17 @@ export async function init(
         try {
           await m.hookUpdate(doc);
         } catch (err) {
-          console.log(
-            `[db] Update hook failed for ${type} ${doc._id}: ${err.message}`
-          );
+          console.log(`[db] Update hook failed for ${type} ${doc._id}: ${err.message}`);
         }
       }
     }
   });
+
+  for (const model of models.all()) {
+    if (typeof model.hookDatabaseInit === 'function') {
+      await model.hookDatabaseInit();
+    }
+  }
 }
 
 // ~~~~~~~~~~~~~~~~ //
@@ -157,7 +152,7 @@ export function offChange(callback: Function): void {
 }
 
 export const bufferChanges = (database.bufferChanges = async function(
-  millis: number = 1000
+  millis: number = 1000,
 ): Promise<void> {
   if (db._empty) return _send('bufferChanges', ...arguments);
 
@@ -195,11 +190,7 @@ export const flushChanges = (database.flushChanges = async function() {
   }
 });
 
-async function notifyOfChange(
-  event: string,
-  doc: BaseModel,
-  fromSync: boolean
-): Promise<void> {
+async function notifyOfChange(event: string, doc: BaseModel, fromSync: boolean): Promise<void> {
   changeBuffer.push([event, doc, fromSync]);
 
   // Flush right away if we're not buffering
@@ -214,7 +205,7 @@ async function notifyOfChange(
 
 export const getMostRecentlyModified = (database.getMostRecentlyModified = async function(
   type: string,
-  query: Object = {}
+  query: Object = {},
 ): Promise<BaseModel | null> {
   if (db._empty) return _send('getMostRecentlyModified', ...arguments);
 
@@ -225,7 +216,7 @@ export const getMostRecentlyModified = (database.getMostRecentlyModified = async
 export const findMostRecentlyModified = (database.findMostRecentlyModified = async function(
   type: string,
   query: Object = {},
-  limit: number | null = null
+  limit: number | null = null,
 ): Promise<Array<BaseModel>> {
   if (db._empty) return _send('findMostRecentlyModified', ...arguments);
 
@@ -254,7 +245,7 @@ export const findMostRecentlyModified = (database.findMostRecentlyModified = asy
 export const find = (database.find = async function<T: BaseModel>(
   type: string,
   query: Object = {},
-  sort: Object = { created: 1 }
+  sort: Object = { created: 1 },
 ): Promise<Array<T>> {
   if (db._empty) return _send('find', ...arguments);
 
@@ -277,9 +268,7 @@ export const find = (database.find = async function<T: BaseModel>(
   });
 });
 
-export const all = (database.all = async function<T: BaseModel>(
-  type: string
-): Promise<Array<T>> {
+export const all = (database.all = async function<T: BaseModel>(type: string): Promise<Array<T>> {
   if (db._empty) return _send('all', ...arguments);
 
   return database.find(type);
@@ -287,7 +276,7 @@ export const all = (database.all = async function<T: BaseModel>(
 
 export const getWhere = (database.getWhere = async function<T: BaseModel>(
   type: string,
-  query: Object
+  query: Object,
 ): Promise<T | null> {
   if (db._empty) return _send('getWhere', ...arguments);
 
@@ -297,7 +286,7 @@ export const getWhere = (database.getWhere = async function<T: BaseModel>(
 
 export const get = (database.get = async function<T: BaseModel>(
   type: string,
-  id: string
+  id: string,
 ): Promise<T | null> {
   if (db._empty) return _send('get', ...arguments);
 
@@ -311,7 +300,7 @@ export const get = (database.get = async function<T: BaseModel>(
 
 export const count = (database.count = async function(
   type: string,
-  query: Object = {}
+  query: Object = {},
 ): Promise<number> {
   if (db._empty) return _send('count', ...arguments);
 
@@ -328,7 +317,7 @@ export const count = (database.count = async function(
 
 export const upsert = (database.upsert = async function(
   doc: BaseModel,
-  fromSync: boolean = false
+  fromSync: boolean = false,
 ): Promise<BaseModel> {
   if (db._empty) return _send('upsert', ...arguments);
 
@@ -342,7 +331,7 @@ export const upsert = (database.upsert = async function(
 
 export const insert = (database.insert = async function<T: BaseModel>(
   doc: T,
-  fromSync: boolean = false
+  fromSync: boolean = false,
 ): Promise<T> {
   if (db._empty) return _send('insert', ...arguments);
 
@@ -363,7 +352,7 @@ export const insert = (database.insert = async function<T: BaseModel>(
 
 export const update = (database.update = async function<T: BaseModel>(
   doc: T,
-  fromSync: boolean = false
+  fromSync: boolean = false,
 ): Promise<T> {
   if (db._empty) return _send('update', ...arguments);
 
@@ -384,7 +373,7 @@ export const update = (database.update = async function<T: BaseModel>(
 
 export const remove = (database.remove = async function<T: BaseModel>(
   doc: T,
-  fromSync: boolean = false
+  fromSync: boolean = false,
 ): Promise<void> {
   if (db._empty) return _send('remove', ...arguments);
 
@@ -404,7 +393,7 @@ export const remove = (database.remove = async function<T: BaseModel>(
 
 export const removeWhere = (database.removeWhere = async function(
   type: string,
-  query: Object
+  query: Object,
 ): Promise<void> {
   if (db._empty) return _send('removeWhere', ...arguments);
 
@@ -439,22 +428,19 @@ export async function docUpdate<T: BaseModel>(
     // NOTE: This is before `patch` because we want `patch.modified` to win if it has it
     { modified: Date.now() },
 
-    ...patches
+    ...patches,
   );
 
   return database.update(doc);
 }
 
-export async function docCreate<T: BaseModel>(
-  type: string,
-  ...patches: Array<Object>
-): Promise<T> {
+export async function docCreate<T: BaseModel>(type: string, ...patches: Array<Object>): Promise<T> {
   const doc = await models.initModel(
     type,
     ...patches,
 
     // Fields that the user can't touch
-    { type: type }
+    { type: type },
   );
 
   return database.insert(doc);
@@ -466,15 +452,13 @@ export async function docCreate<T: BaseModel>(
 
 export const withDescendants = (database.withDescendants = async function(
   doc: BaseModel | null,
-  stopType: string | null = null
+  stopType: string | null = null,
 ): Promise<Array<BaseModel>> {
   if (db._empty) return _send('withDescendants', ...arguments);
 
   let docsToReturn = doc ? [doc] : [];
 
-  async function next(
-    docs: Array<BaseModel | null>
-  ): Promise<Array<BaseModel>> {
+  async function next(docs: Array<BaseModel | null>): Promise<Array<BaseModel>> {
     let foundDocs = [];
 
     for (const d of docs) {
@@ -505,7 +489,7 @@ export const withDescendants = (database.withDescendants = async function(
 
 export const withAncestors = (database.withAncestors = async function(
   doc: BaseModel | null,
-  types: Array<string> = allTypes()
+  types: Array<string> = allTypes(),
 ): Promise<Array<BaseModel>> {
   if (db._empty) return _send('withAncestors', ...arguments);
 
@@ -540,7 +524,7 @@ export const withAncestors = (database.withAncestors = async function(
 
 export const duplicate = (database.duplicate = async function<T: BaseModel>(
   originalDoc: T,
-  patch: Object = {}
+  patch: Object = {},
 ): Promise<T> {
   if (db._empty) return _send('duplicate', ...arguments);
 
@@ -611,7 +595,7 @@ export async function _repairDatabase() {
  */
 async function _repairBaseEnvironments(workspace) {
   const baseEnvironments = await find(models.environment.type, {
-    parentId: workspace._id
+    parentId: workspace._id,
   });
 
   // Nothing to do here
@@ -627,7 +611,7 @@ async function _repairBaseEnvironments(workspace) {
 
     chosenBase.data = Object.assign(baseEnvironment.data, chosenBase.data);
     const subEnvironments = await find(models.environment.type, {
-      parentId: baseEnvironment._id
+      parentId: baseEnvironment._id,
     });
 
     for (const subEnvironment of subEnvironments) {
@@ -641,11 +625,7 @@ async function _repairBaseEnvironments(workspace) {
   // Update remaining base env
   await update(chosenBase);
 
-  console.log(
-    `[fix] Merged ${baseEnvironments.length} base environments under ${
-      workspace.name
-    }`
-  );
+  console.log(`[fix] Merged ${baseEnvironments.length} base environments under ${workspace.name}`);
 }
 
 /**
@@ -655,7 +635,7 @@ async function _repairBaseEnvironments(workspace) {
  */
 async function _fixMultipleCookieJars(workspace) {
   const cookieJars = await find(models.cookieJar.type, {
-    parentId: workspace._id
+    parentId: workspace._id,
   });
 
   // Nothing to do here
@@ -684,7 +664,5 @@ async function _fixMultipleCookieJars(workspace) {
   // Update remaining jar
   await update(chosenJar);
 
-  console.log(
-    `[fix] Merged ${cookieJars.length} cookie jars under ${workspace.name}`
-  );
+  console.log(`[fix] Merged ${cookieJars.length} cookie jars under ${workspace.name}`);
 }

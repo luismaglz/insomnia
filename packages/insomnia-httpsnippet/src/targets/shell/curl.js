@@ -19,25 +19,16 @@ module.exports = function(source, options) {
     {
       indent: '  ',
       short: false,
-      binary: false
+      binary: false,
     },
-    options
+    options,
   );
 
-  var code = new CodeBuilder(
-    opts.indent,
-    opts.indent !== false ? ' \\\n' + opts.indent : ' '
-  );
+  var code = new CodeBuilder(opts.indent, opts.indent !== false ? ' \\\n' + opts.indent : ' ');
 
   code
     .push('curl %s %s', opts.short ? '-X' : '--request', source.method)
-    .push(
-      util.format(
-        '%s%s',
-        opts.short ? '' : '--url ',
-        helpers.quote(source.fullUrl)
-      )
-    );
+    .push(util.format('%s%s', opts.short ? '' : '--url ', helpers.quote(source.fullUrl)));
 
   if (source.httpVersion === 'HTTP/1.0') {
     code.push(opts.short ? '-0' : '--http1.0');
@@ -50,10 +41,7 @@ module.exports = function(source, options) {
       var value = source.headersObj[key];
 
       // Remove content-type header if it's multipart because curl will add it's own (with boundary)
-      if (
-        key.toLowerCase() === 'content-type' &&
-        value.indexOf('multipart/') === 0
-      ) {
+      if (key.toLowerCase() === 'content-type' && value.indexOf('multipart/') === 0) {
         return;
       }
 
@@ -62,11 +50,7 @@ module.exports = function(source, options) {
     });
 
   if (source.allHeaders.cookie) {
-    code.push(
-      '%s %s',
-      opts.short ? '-b' : '--cookie',
-      helpers.quote(source.allHeaders.cookie)
-    );
+    code.push('%s %s', opts.short ? '-b' : '--cookie', helpers.quote(source.allHeaders.cookie));
   }
 
   // construct post params
@@ -89,7 +73,7 @@ module.exports = function(source, options) {
         code.push(
           '%s %s',
           opts.binary ? '--data-binary' : opts.short ? '-d' : '--data',
-          helpers.quote(source.postData.text)
+          helpers.quote(source.postData.text),
         );
       }
   }
@@ -101,6 +85,5 @@ module.exports.info = {
   key: 'curl',
   title: 'cURL',
   link: 'http://curl.haxx.se/',
-  description:
-    'cURL is a command line tool and library for transferring data with URL syntax'
+  description: 'cURL is a command line tool and library for transferring data with URL syntax',
 };
